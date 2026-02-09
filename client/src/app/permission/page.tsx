@@ -1132,7 +1132,7 @@ export default function PermissionPage() {
         </div>
       </section>
 
-  <section className="w-full space-y-4">
+      <section className="w-full space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
