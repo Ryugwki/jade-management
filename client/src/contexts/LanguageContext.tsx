@@ -312,6 +312,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "permission.matrix.description": "M\u00f4 t\u1ea3",
     "permission.matrix.caption":
       "D\u00f9ng danh s\u00e1ch \u0111\u1ec3 ch\u1ecdn m\u1ee9c quy\u1ec1n. C\u1eadp nh\u1eadt \u00e1p d\u1ee5ng ngay cho s\u1ea3n ph\u1ea9m v\u00e0 ki\u1ec3m \u0111\u1ecbnh.",
+    "permission.matrix.updated": "\u0110\u00e3 c\u1eadp nh\u1eadt",
 
     "permission.area.inventory": "S\u1ea3n ph\u1ea9m & t\u1ed3n kho",
     "permission.area.certificates": "Ki\u1ec3m \u0111\u1ecbnh",
@@ -530,7 +531,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.label.color": "M\u00e0u",
     "product.label.image": "H\u00ecnh \u1ea3nh",
     "product.label.dimension": "K\u00edch th\u01b0\u1edbc",
-    "product.label.buyingPrice": "Gi\u00e1 nh\u1eadp",
+    "product.label.buyingPrice": "Gi\u00e1 thu",
     "product.label.sellingPrice": "Gi\u00e1 b\u00e1n",
     "product.label.certificateStatus":
       "T\u00ecnh tr\u1ea1ng ki\u1ec3m \u0111\u1ecbnh",
@@ -839,6 +840,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "permission.matrix.description": "Description",
     "permission.matrix.caption":
       "Use the dropdowns to select permission levels. Updates apply immediately to the product and certificate flows.",
+    "permission.matrix.updated": "Updated",
 
     "permission.area.inventory": "Inventory & products",
     "permission.area.certificates": "Certificates",

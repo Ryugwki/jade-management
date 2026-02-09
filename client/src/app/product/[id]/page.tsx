@@ -7,14 +7,6 @@ import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-} from "@/components/ui/carousel";
-import {
-  ProductSection,
   InfoRowItem,
   SpecificationList,
   CertificateStatusBadge,
@@ -62,7 +54,7 @@ export default function ProductDetailsPage() {
   const showBuyingPrice = canViewBuyingPrice || hasBuyingPrice;
 
   const formatStatusBadge = (
-    status?: CertificateStatus
+    status?: CertificateStatus,
   ): "verified" | "pending" | "unverified" => {
     const normalized = normalizeStatus(status);
     if (normalized === "verified") return "verified";
@@ -226,193 +218,192 @@ export default function ProductDetailsPage() {
 
   const dimensionEntries = getDimensionEntriesL(product);
 
+  const primaryImage = product.images?.[0];
+  const secondaryImages = product.images?.slice(1) ?? [];
+
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
-      {/* Header Section */}
-      <div className="flex items-start justify-between gap-6 mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-4 mb-3 flex-wrap">
-            <h1 className="text-4xl font-bold tracking-tight">
-              {formatGemstoneTypeL(product.gemstoneType) ||
-                formatJewelryTypeL(product.jewelryType) ||
-                t("product.label.gemstone")}
-            </h1>
-            <CertificateStatusBadge
-              status={formatStatusBadge(product.certificateStatus)}
-              large
-            />
-          </div>
-          <p className="text-base text-muted-foreground max-w-2xl leading-relaxed">
-            {product.description || t("product.description.empty")}
+    <div className="mx-auto w-full max-w-6xl space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            {t("product.label.gemstone")}
           </p>
+          <h1 className="text-3xl md:text-4xl font-semibold text-foreground">
+            {formatGemstoneTypeL(product.gemstoneType) ||
+              formatJewelryTypeL(product.jewelryType) ||
+              t("product.label.gemstone")}
+          </h1>
         </div>
-        <Button asChild variant="outline" className="whitespace-nowrap">
-          <Link href="/product">{t("common.update")}</Link>
-        </Button>
+        <div className="flex items-center gap-3">
+          <CertificateStatusBadge
+            status={formatStatusBadge(product.certificateStatus)}
+            large
+          />
+          <Button asChild variant="outline" className="whitespace-nowrap">
+            <Link href="/product">{t("common.update")}</Link>
+          </Button>
+        </div>
       </div>
 
-      {/* Media Gallery Section */}
-      <ProductSection title={t("product.label.image")}>
-        {product.images?.length ? (
-          product.images.length > 2 ? (
-            <Carousel className="w-full">
-              <CarouselContent>
-                {product.images.map((url, index) => (
-                  <CarouselItem key={`${url}-${index}`}>
-                    <div className="relative w-full bg-muted rounded-xl overflow-hidden border border-border/50">
-                      <div className="relative aspect-square">
-                        <Image
-                          src={url}
-                          alt={t("product.image.altIndex", { index: index + 1 })}
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                      </div>
-                      {index === 0 && (
-                        <div className="absolute top-4 right-4">
-                          <Badge className="bg-primary/90 text-primary-foreground text-xs font-semibold">
-                            {t("product.image.primary")}
-                          </Badge>
-                        </div>
-                      )}
+      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="rounded-xl border border-border/60 bg-card p-4">
+          <div className="flex items-center justify-between gap-2 pb-3">
+            <h2 className="text-sm font-semibold text-foreground">
+              {t("product.label.image")}
+            </h2>
+            {primaryImage && (
+              <Badge variant="secondary" className="border-border/60">
+                {t("product.image.primary")}
+              </Badge>
+            )}
+          </div>
+          {primaryImage ? (
+            <div className="space-y-4">
+              <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border/60 bg-muted">
+                <Image
+                  src={primaryImage}
+                  alt={t("product.image.altIndex", { index: 1 })}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+              {secondaryImages.length > 0 && (
+                <div className="grid grid-cols-4 gap-3">
+                  {secondaryImages.map((url, index) => (
+                    <div
+                      key={`${url}-${index + 1}`}
+                      className="relative aspect-square overflow-hidden rounded-md border border-border/60 bg-muted"
+                    >
+                      <Image
+                        src={url}
+                        alt={t("product.image.altIndex", { index: index + 2 })}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
                     </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              <CarouselPrevious className="left-3 bg-background/60 backdrop-blur border-border hover:bg-background/80" />
-              <CarouselNext className="right-3 bg-background/60 backdrop-blur border-border hover:bg-background/80" />
-            </Carousel>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
-              {product.images.map((url, index) => (
-                <div
-                  key={`${url}-${index}`}
-                  className="relative w-full bg-muted rounded-xl overflow-hidden border border-border/50 group"
-                >
-                  <div className="relative aspect-square">
-                    <Image
-                      src={url}
-                      alt={t("product.image.altIndex", { index: index + 1 })}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      unoptimized
-                    />
-                  </div>
-                  {index === 0 && (
-                    <div className="absolute top-4 right-4">
-                      <Badge className="bg-primary/90 text-primary-foreground text-xs font-semibold">
-                        {t("product.image.primary")}
-                      </Badge>
+            <div className="rounded-lg border border-dashed border-border/70 bg-muted/40 py-16 text-center text-sm text-muted-foreground">
+              {t("product.image.none")}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-border/60 bg-card">
+          <div className="space-y-6 p-5">
+            <div className="space-y-3">
+              <h2 className="text-base font-semibold text-foreground">
+                {t("product.info.basicInformation")}
+              </h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {product.description || t("product.description.empty")}
+              </p>
+              <div className="space-y-1">
+                <InfoRowItem
+                  label={t("product.label.gemstone")}
+                  value={formatGemstoneTypeL(product.gemstoneType)}
+                />
+                <InfoRowItem
+                  label={t("product.label.jewelry")}
+                  value={formatJewelryTypeL(product.jewelryType)}
+                />
+                <InfoRowItem
+                  label={t("product.label.color")}
+                  value={product.colorType}
+                />
+              </div>
+            </div>
+
+            {dimensionEntries.length > 0 && (
+              <div className="space-y-3 border-t border-border/40 pt-5">
+                <h2 className="text-base font-semibold text-foreground">
+                  {t("product.info.dimensions")}
+                </h2>
+                <SpecificationList specs={dimensionEntries} />
+              </div>
+            )}
+
+            <div className="space-y-4 border-t border-border/40 pt-5">
+              <h2 className="text-base font-semibold text-foreground">
+                {t("product.info.pricing")}
+              </h2>
+              <div className="grid gap-4">
+                <PriceDisplay
+                  label={t("product.label.sellingPrice")}
+                  value={formatMoney(product.sellingPrice)}
+                  size="lg"
+                  highlight
+                />
+                <div className="rounded-lg border border-border/50 bg-muted/40 p-4">
+                  <PriceDisplay
+                    label={t("product.label.buyingPrice")}
+                    value={
+                      showBuyingPrice ? formatMoney(product.buyingPrice) : "—"
+                    }
+                    size="md"
+                  />
+                  {!showBuyingPrice && (
+                    <div className="mt-3 flex flex-col gap-2.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={requestLoading}
+                        onClick={handleRequestBuyingPrice}
+                        className="w-full"
+                      >
+                        {requestLoading
+                          ? t("common.loading")
+                          : t("product.action.requestAccess")}
+                      </Button>
+                      {requestMessage && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          {requestMessage}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
-              ))}
+              </div>
             </div>
-          )
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">{t("product.image.none")}</p>
-          </div>
-        )}
-      </ProductSection>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Basic Info Section */}
-        <ProductSection title={t("product.info.basicInformation")}>
-          <div className="space-y-2">
-            <InfoRowItem
-              label={t("product.label.gemstone")}
-              value={formatGemstoneTypeL(product.gemstoneType)}
-            />
-            <InfoRowItem
-              label={t("product.label.jewelry")}
-              value={formatJewelryTypeL(product.jewelryType)}
-            />
-            <InfoRowItem
-              label={t("product.label.color")}
-              value={product.colorType}
-            />
-          </div>
-        </ProductSection>
-
-        {/* Dimensions Section */}
-        {dimensionEntries.length > 0 && (
-          <ProductSection title={t("product.info.dimensions")}>
-            <SpecificationList specs={dimensionEntries} />
-          </ProductSection>
-        )}
-      </div>
-
-      {/* Pricing Section */}
-      <ProductSection title={t("product.info.pricing")}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <PriceDisplay
-              label={t("product.label.buyingPrice")}
-              value={showBuyingPrice ? formatMoney(product.buyingPrice) : "—"}
-              size="lg"
-            />
-            {!showBuyingPrice && (
-              <div className="flex flex-col gap-2.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={requestLoading}
-                  onClick={handleRequestBuyingPrice}
-                  className="w-full"
-                >
-                  {requestLoading ? t("common.loading") : t("product.action.requestAccess")}
-                </Button>
-                {requestMessage && (
-                  <p className="text-xs text-muted-foreground text-center pt-2">
-                    {requestMessage}
-                  </p>
+            <div className="space-y-3 border-t border-border/40 pt-5">
+              <h2 className="text-base font-semibold text-foreground">
+                {t("product.info.certification")}
+              </h2>
+              <div className="space-y-1">
+                <InfoRowItem
+                  label={t("product.label.certificateId")}
+                  value={product.certificateId}
+                />
+                <InfoRowItem
+                  label={t("product.label.certificateAuthority")}
+                  value={product.certificateAuthority}
+                />
+                {product.certificateLink && (
+                  <div className="flex items-center justify-between py-3 border-b border-border/40">
+                    <span className="text-sm text-muted-foreground font-medium">
+                      {t("product.label.certificateImage")}
+                    </span>
+                    <a
+                      href={product.certificateLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                    >
+                      {t("common.view")} →
+                    </a>
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <PriceDisplay
-              label={t("product.label.sellingPrice")}
-              value={formatMoney(product.sellingPrice)}
-              size="lg"
-              highlight
-            />
-          </div>
-        </div>
-      </ProductSection>
-
-      {/* Certification Section */}
-      <ProductSection title={t("product.info.certification")}>
-        <div className="space-y-2">
-          <InfoRowItem
-            label={t("product.label.certificateId")}
-            value={product.certificateId}
-          />
-          <InfoRowItem
-            label={t("product.label.certificateAuthority")}
-            value={product.certificateAuthority}
-          />
-          {product.certificateLink && (
-            <div className="flex items-center justify-between py-3 border-b border-border/40">
-              <span className="text-sm text-muted-foreground font-medium">
-                {t("product.label.certificateImage")}
-              </span>
-              <a
-                href={product.certificateLink}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-              >
-                {t("common.view")} →
-              </a>
             </div>
-          )}
-        </div>
-      </ProductSection>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

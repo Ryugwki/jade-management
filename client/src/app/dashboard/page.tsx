@@ -80,7 +80,7 @@ export default function DashboardPage() {
       try {
         const nextProducts = await listProducts();
         setProducts(nextProducts);
-      } catch (err) {
+      } catch {
         setError(t("dashboard.loadFailed"));
       } finally {
         setLoading(false);
@@ -88,7 +88,7 @@ export default function DashboardPage() {
     };
 
     load();
-  }, [user]);
+  }, [user, t]);
 
   const stats = useMemo(() => {
     const normalizeStatus = (status?: string) =>
@@ -119,11 +119,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-[linear-gradient(120deg,var(--surface-1),var(--surface-2))] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
-        <div className="absolute -top-24 -right-24 h-56 w-56 rounded-full bg-emerald-400/15 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-amber-400/20 blur-3xl" />
-        <div className="relative z-10 space-y-2">
-          <Badge className="bg-primary/10 text-primary border border-primary/20">
+      <section className="relative overflow-hidden rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="space-y-2">
+          <Badge variant="secondary" className="border-border/60">
             {t("dashboard.badge")}
           </Badge>
           <h1 className="text-3xl md:text-4xl font-semibold text-foreground">
@@ -156,7 +154,7 @@ export default function DashboardPage() {
               {t("dashboard.action.viewInventory")}
             </Button>
             <Button
-              className="bg-primary text-primary-foreground hover:bg-[color:var(--jade-600)]"
+              className="bg-primary text-primary-foreground hover:bg-(--jade-600)"
               onClick={() => router.push("/product")}
             >
               {t("dashboard.action.manageProducts")}
@@ -164,7 +162,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">
-          <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)] flex h-full flex-col">
+          <Card className="border-border/60 shadow-sm flex h-full flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                 <Package size={16} className="text-emerald-600" />
@@ -178,7 +176,7 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
-          <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)] flex h-full flex-col">
+          <Card className="border-border/60 shadow-sm flex h-full flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                 <ShieldCheck size={16} className="text-emerald-600" />
@@ -196,7 +194,7 @@ export default function DashboardPage() {
               <Progress value={stats.verifiedRatio} className="mt-1" />
             </CardContent>
           </Card>
-          <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)] flex h-full flex-col">
+          <Card className="border-border/60 shadow-sm flex h-full flex-col">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
                 <AlertTriangle size={16} className="text-amber-600" />
@@ -216,7 +214,7 @@ export default function DashboardPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr_0.9fr] items-start">
-        <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+        <Card className="border-border/60 shadow-sm">
           <CardHeader className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle>{t("dashboard.section.inventory.title")}</CardTitle>

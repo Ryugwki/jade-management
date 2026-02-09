@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ElementType,
 } from "react";
@@ -44,7 +45,6 @@ import {
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -61,6 +61,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const display = Playfair_Display({ subsets: ["latin"], weight: ["600"] });
 const body = Space_Grotesk({
@@ -331,6 +333,9 @@ export default function PermissionPage() {
   );
   const approvalMeta = useMemo(() => buildApprovalMeta(t), [t]);
   const [roleCards, setRoleCards] = useState<RoleCard[]>(defaultRoleCards);
+  const [selectedRoleTitle, setSelectedRoleTitle] = useState<string | null>(
+    null,
+  );
   const [guardrails, setGuardrails] = useState<Guardrail[]>(defaultGuardrails);
   const [permissionMatrix, setPermissionMatrix] = useState<MatrixRow[]>(
     initialPermissionMatrix,
@@ -339,6 +344,13 @@ export default function PermissionPage() {
   const [selectedApprovals, setSelectedApprovals] = useState<
     Record<string, boolean>
   >({});
+  const [savingPermissions, setSavingPermissions] = useState<
+    Record<string, boolean>
+  >({});
+  const [permissionUpdates, setPermissionUpdates] = useState<
+    Record<string, boolean>
+  >({});
+  const updateTimeouts = useRef<Record<string, number>>({});
   const [showAllRequests, setShowAllRequests] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
@@ -460,6 +472,26 @@ export default function PermissionPage() {
   const formatRoleCardBadge = (badge: string) => roleCardBadges[badge] || badge;
   const formatRoleCardPerk = (perk: string) => roleCardPerks[perk] || perk;
 
+  const selectedRoleKey = useMemo(() => {
+    if (!selectedRoleTitle) return null;
+    if (selectedRoleTitle === "Super Admin") return "superAdmin";
+    if (selectedRoleTitle === "Admin") return "admin";
+    if (selectedRoleTitle === "Guest") return "guest";
+    return null;
+  }, [selectedRoleTitle]);
+
+  const selectedRoleLabel = selectedRoleTitle
+    ? formatRoleCardTitle(selectedRoleTitle)
+    : null;
+
+  const hasPendingPermissionUpdates = useMemo(
+    () => Object.values(savingPermissions).some(Boolean),
+    [savingPermissions],
+  );
+
+  const getPermissionKey = (area: string, roleKey: PermissionRoleKey) =>
+    `${area}:${roleKey}`;
+
   const applyPolicy = useCallback(
     (policy: permissionService.PermissionPolicy) => {
       const normalizedMatrix = policy.matrix.map((row) => ({
@@ -478,11 +510,13 @@ export default function PermissionPage() {
           ? mergeGuardrails(policy.guardrails as Guardrail[])
           : defaultGuardrails,
       );
-      setPermissionMatrix(
-        policy.matrix.length ? normalizedMatrix : initialPermissionMatrix,
-      );
+      if (!hasPendingPermissionUpdates) {
+        setPermissionMatrix(
+          policy.matrix.length ? normalizedMatrix : initialPermissionMatrix,
+        );
+      }
     },
-    [],
+    [hasPendingPermissionUpdates],
   );
 
   const refreshPolicy = useCallback(async () => {
@@ -509,9 +543,8 @@ export default function PermissionPage() {
   }, [t]);
 
   const refreshUserAccessAndPolicy = useCallback(async () => {
-    await refreshPolicy();
     await refreshUsers();
-  }, [refreshPolicy, refreshUsers]);
+  }, [refreshUsers]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -644,6 +677,7 @@ export default function PermissionPage() {
     roleKey: PermissionRoleKey,
     nextValue: PermissionLevelKey,
   ) => {
+    const key = getPermissionKey(area, roleKey);
     const previousMatrix = permissionMatrix;
     let from: PermissionLevelKey | null = null;
     const nextMatrix = permissionMatrix.map((row) => {
@@ -656,6 +690,8 @@ export default function PermissionPage() {
     });
 
     setPermissionMatrix(nextMatrix);
+    setSavingPermissions((prev) => ({ ...prev, [key]: true }));
+    setPermissionUpdates((prev) => ({ ...prev, [key]: false }));
 
     if (from && from !== nextValue) {
       const roleLabel = formatRoleLabel(roleKey);
@@ -671,9 +707,19 @@ export default function PermissionPage() {
           applyPolicy(policy);
           logAudit(message);
           refreshUserAccessAndPolicy();
+          setSavingPermissions((prev) => ({ ...prev, [key]: false }));
+          setPermissionUpdates((prev) => ({ ...prev, [key]: true }));
+          if (updateTimeouts.current[key]) {
+            window.clearTimeout(updateTimeouts.current[key]);
+          }
+          updateTimeouts.current[key] = window.setTimeout(() => {
+            setPermissionUpdates((prev) => ({ ...prev, [key]: false }));
+          }, 1600);
         })
         .catch(() => {
           setPermissionMatrix(previousMatrix);
+          setSavingPermissions((prev) => ({ ...prev, [key]: false }));
+          toast.error(t("permission.audit.updatePermissionsFailed"));
         });
     }
   };
@@ -943,11 +989,11 @@ export default function PermissionPage() {
   }
 
   return (
-    <div className={`${body.className} space-y-6`}>
-      <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-[linear-gradient(120deg,var(--surface-1),var(--surface-2))] p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
-        <div className="absolute -right-16 top-6 h-40 w-40 rounded-full bg-amber-500/15 blur-3xl" />
-        <div className="absolute -left-20 bottom-0 h-44 w-44 rounded-full bg-emerald-500/15 blur-3xl" />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-center">
+    <div
+      className={`${body.className} mx-auto w-full max-w-6xl space-y-8 pb-12`}
+    >
+      <section className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
           <div className="space-y-3">
             <Badge className="w-fit bg-primary/10 text-primary border border-primary/20">
               <Sparkles size={14} /> {t("permission.header.badge")}
@@ -995,7 +1041,7 @@ export default function PermissionPage() {
           {highlights.map((item) => (
             <Card
               key={item.label}
-              className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)] bg-card/80"
+              className="border-border/60 shadow-sm bg-card"
             >
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
@@ -1021,7 +1067,7 @@ export default function PermissionPage() {
             </h2>
           </div>
         </div>
-        <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+        <Card className="border-border/60 shadow-sm">
           <CardHeader>
             <CardTitle>{t("permission.section.roles.cardTitle")}</CardTitle>
             <CardDescription>
@@ -1030,9 +1076,17 @@ export default function PermissionPage() {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-3">
             {roleCards.map((role) => (
-              <div
+              <button
                 key={role.title}
-                className={`rounded-2xl border border-border/70 bg-linear-to-br ${role.gradient} p-4 shadow-sm`}
+                type="button"
+                onClick={() => setSelectedRoleTitle(role.title)}
+                className={cn(
+                  `w-full text-left rounded-2xl border border-border/70 bg-linear-to-br ${role.gradient} p-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background`,
+                  selectedRoleTitle === role.title
+                    ? "border-primary/40 bg-primary/5 shadow-sm"
+                    : "hover:border-primary/30",
+                )}
+                data-selected={selectedRoleTitle === role.title}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1056,7 +1110,7 @@ export default function PermissionPage() {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </button>
             ))}
           </CardContent>
         </Card>
@@ -1074,7 +1128,7 @@ export default function PermissionPage() {
           </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] items-start">
-          <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+          <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle>{t("permission.guardrails.title")}</CardTitle>
               <CardDescription>
@@ -1106,7 +1160,7 @@ export default function PermissionPage() {
             </CardContent>
           </Card>
 
-          <Card className="border border-amber-500/30 bg-linear-to-br from-amber-500/15 via-background to-transparent">
+          <Card className="border border-amber-500/30 bg-amber-500/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle size={18} className="text-amber-600" />
@@ -1159,7 +1213,7 @@ export default function PermissionPage() {
           </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] items-start">
-          <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+          <Card className="border-border/60 shadow-sm">
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>{t("permission.access.title")}</CardTitle>
@@ -1255,7 +1309,7 @@ export default function PermissionPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+          <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle>
                 {t("permission.section.access.summaryTitle")}
@@ -1290,7 +1344,7 @@ export default function PermissionPage() {
           </Card>
         </div>
 
-        <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+        <Card className="border-border/60 shadow-sm">
           <CardHeader>
             <CardTitle>{t("permission.matrix.title")}</CardTitle>
             <CardDescription>{t("permission.matrix.subtitle")}</CardDescription>
@@ -1299,119 +1353,205 @@ export default function PermissionPage() {
                 {t("permission.matrix.syncing")}
               </div>
             ) : null}
+            {selectedRoleLabel ? (
+              <div className="text-xs text-muted-foreground">
+                {t("permission.section.roles.subtitle")}: {selectedRoleLabel}
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground">
+                {t("permission.section.roles.cardSubtitle")}
+              </div>
+            )}
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("permission.matrix.area")}</TableHead>
-                  <TableHead>{t("permission.matrix.description")}</TableHead>
-                  <TableHead>{t("role.superAdmin")}</TableHead>
-                  <TableHead>{t("role.admin")}</TableHead>
-                  <TableHead>{t("role.guest")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {permissionMatrix.map((row) => (
-                  <TableRow key={row.area}>
-                    <TableCell className="font-medium">
-                      {formatMatrixArea(row.area)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">
-                      {formatMatrixDescription(row.description)}
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={row.superAdmin}
-                        onValueChange={(value) =>
-                          handlePermissionChange(
-                            row.area,
-                            "superAdmin",
-                            value as PermissionLevelKey,
-                          )
-                        }
-                      >
-                        <SelectTrigger
-                          className={
-                            permissionLevels[
-                              row.superAdmin as keyof typeof permissionLevels
-                            ].className + " h-8 min-w-110px"
-                          }
-                        >
-                          <SelectValue placeholder={t("common.select")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {permissionOrder.map((level) => (
-                            <SelectItem key={level} value={level}>
-                              {permissionLevels[level].label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={row.admin}
-                        onValueChange={(value) =>
-                          handlePermissionChange(
-                            row.area,
-                            "admin",
-                            value as PermissionLevelKey,
-                          )
-                        }
-                      >
-                        <SelectTrigger
-                          className={
-                            permissionLevels[
-                              row.admin as keyof typeof permissionLevels
-                            ].className + " h-8 min-w-110px"
-                          }
-                        >
-                          <SelectValue placeholder={t("common.select")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {permissionOrder.map((level) => (
-                            <SelectItem key={level} value={level}>
-                              {permissionLevels[level].label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={row.guest}
-                        onValueChange={(value) =>
-                          handlePermissionChange(
-                            row.area,
-                            "guest",
-                            value as PermissionLevelKey,
-                          )
-                        }
-                      >
-                        <SelectTrigger
-                          className={
-                            permissionLevels[
-                              row.guest as keyof typeof permissionLevels
-                            ].className + " h-8 min-w-110px"
-                          }
-                        >
-                          <SelectValue placeholder={t("common.select")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {permissionOrder.map((level) => (
-                            <SelectItem key={level} value={level}>
-                              {permissionLevels[level].label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
+            <div
+              className={cn(
+                "rounded-xl border border-border/60 bg-background/80 transition",
+                selectedRoleKey ? "" : "opacity-80",
+              )}
+            >
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("permission.matrix.area")}</TableHead>
+                    <TableHead>{t("permission.matrix.description")}</TableHead>
+                    <TableHead>{t("role.superAdmin")}</TableHead>
+                    <TableHead>{t("role.admin")}</TableHead>
+                    <TableHead>{t("role.guest")}</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-              <TableCaption>{t("permission.matrix.caption")}</TableCaption>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {permissionMatrix.map((row) => {
+                    const superKey = getPermissionKey(row.area, "superAdmin");
+                    const adminKey = getPermissionKey(row.area, "admin");
+                    const guestKey = getPermissionKey(row.area, "guest");
+                    const superSaving = Boolean(savingPermissions[superKey]);
+                    const adminSaving = Boolean(savingPermissions[adminKey]);
+                    const guestSaving = Boolean(savingPermissions[guestKey]);
+                    return (
+                      <TableRow key={row.area} className="align-middle">
+                        <TableCell className="font-medium align-middle">
+                          {formatMatrixArea(row.area)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs align-middle">
+                          {formatMatrixDescription(row.description)}
+                        </TableCell>
+                        <TableCell className="align-middle">
+                          <div className="flex items-center gap-2">
+                            <div className="relative">
+                              <Select
+                                value={row.superAdmin}
+                                disabled={superSaving}
+                                onValueChange={(value) =>
+                                  handlePermissionChange(
+                                    row.area,
+                                    "superAdmin",
+                                    value as PermissionLevelKey,
+                                  )
+                                }
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    permissionLevels[
+                                      row.superAdmin as keyof typeof permissionLevels
+                                    ].className,
+                                    "h-9 min-w-110px pr-8 text-xs leading-none whitespace-nowrap",
+                                  )}
+                                >
+                                  <SelectValue
+                                    placeholder={t("common.select")}
+                                  />
+                                  {superSaving && (
+                                    <span className="absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-primary" />
+                                  )}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {permissionOrder.map((level) => (
+                                    <SelectItem key={level} value={level}>
+                                      {permissionLevels[level].label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <span
+                              className={cn(
+                                "text-[11px] text-muted-foreground min-w-14 transition-opacity",
+                                permissionUpdates[superKey]
+                                  ? "opacity-100"
+                                  : "opacity-0",
+                              )}
+                            >
+                              {t("permission.matrix.updated")}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-middle">
+                          <div className="flex items-center gap-2">
+                            <div className="relative">
+                              <Select
+                                value={row.admin}
+                                disabled={adminSaving}
+                                onValueChange={(value) =>
+                                  handlePermissionChange(
+                                    row.area,
+                                    "admin",
+                                    value as PermissionLevelKey,
+                                  )
+                                }
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    permissionLevels[
+                                      row.admin as keyof typeof permissionLevels
+                                    ].className,
+                                    "h-9 min-w-110px pr-8 text-xs leading-none whitespace-nowrap",
+                                  )}
+                                >
+                                  <SelectValue
+                                    placeholder={t("common.select")}
+                                  />
+                                  {adminSaving && (
+                                    <span className="absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-primary" />
+                                  )}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {permissionOrder.map((level) => (
+                                    <SelectItem key={level} value={level}>
+                                      {permissionLevels[level].label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <span
+                              className={cn(
+                                "text-[11px] text-muted-foreground min-w-14 transition-opacity",
+                                permissionUpdates[adminKey]
+                                  ? "opacity-100"
+                                  : "opacity-0",
+                              )}
+                            >
+                              {t("permission.matrix.updated")}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="align-middle">
+                          <div className="flex items-center gap-2">
+                            <div className="relative">
+                              <Select
+                                value={row.guest}
+                                disabled={guestSaving}
+                                onValueChange={(value) =>
+                                  handlePermissionChange(
+                                    row.area,
+                                    "guest",
+                                    value as PermissionLevelKey,
+                                  )
+                                }
+                              >
+                                <SelectTrigger
+                                  className={cn(
+                                    permissionLevels[
+                                      row.guest as keyof typeof permissionLevels
+                                    ].className,
+                                    "h-9 min-w-110px pr-8 text-xs leading-none whitespace-nowrap",
+                                  )}
+                                >
+                                  <SelectValue
+                                    placeholder={t("common.select")}
+                                  />
+                                  {guestSaving && (
+                                    <span className="absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-primary" />
+                                  )}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {permissionOrder.map((level) => (
+                                    <SelectItem key={level} value={level}>
+                                      {permissionLevels[level].label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <span
+                              className={cn(
+                                "text-[11px] text-muted-foreground min-w-14 transition-opacity",
+                                permissionUpdates[guestKey]
+                                  ? "opacity-100"
+                                  : "opacity-0",
+                              )}
+                            >
+                              {t("permission.matrix.updated")}
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </section>
@@ -1428,7 +1568,7 @@ export default function PermissionPage() {
           </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] items-start">
-          <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+          <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle>{t("permission.approvals.title")}</CardTitle>
               <CardDescription>
@@ -1495,20 +1635,27 @@ export default function PermissionPage() {
                   {t("permission.approvals.approve")}
                   {selectedCount ? ` (${selectedCount})` : ""}
                 </Button>
-                <Button
-                  size="sm"
-                  className="bg-rose-500 text-white hover:bg-rose-600"
-                  onClick={handleDeleteSelected}
-                  disabled={!selectedCount}
-                >
+              </div>
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3">
+                <div className="text-xs font-semibold text-rose-700">
                   {t("permission.approvals.delete")}
-                  {selectedCount ? ` (${selectedCount})` : ""}
-                </Button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-rose-500 text-white hover:bg-rose-600"
+                    onClick={handleDeleteSelected}
+                    disabled={!selectedCount}
+                  >
+                    {t("permission.approvals.delete")}
+                    {selectedCount ? ` (${selectedCount})` : ""}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-border/60 shadow-[0_16px_40px_rgba(15,23,42,0.08)]">
+          <Card className="border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle>
                 {t("permission.section.governance.auditTitle")}

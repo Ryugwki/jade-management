@@ -738,7 +738,7 @@ export default function ProductPage() {
                   {product.buyingPrice ? formatMoney(product.buyingPrice) : "—"}
                 </TableCell>
               )}
-              <TableCell className="text-sm font-bold bg-linear-to-r from-emerald-600/10 to-teal-600/10 text-emerald-700 dark:text-emerald-400">
+              <TableCell className="text-sm font-bold from-emerald-600/10 to-teal-600/10 text-emerald-700 ">
                 {formatMoney(product.sellingPrice)}
               </TableCell>
               <TableCell>

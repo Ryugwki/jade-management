@@ -9,7 +9,7 @@ import React, {
   useState,
 } from "react";
 
-const MIN_VISIBLE_MS = 500;
+const MIN_VISIBLE_MS = 1000;
 
 type LoadingContextValue = {
   isVisible: boolean;

@@ -54,11 +54,11 @@ export function Sidebar() {
   const isActive = (href: string) => pathname === href;
 
   return (
-    <aside className="hidden lg:flex bg-[linear-gradient(180deg,var(--surface-1),var(--surface-2))] border-r border-border/70 shadow-[0_14px_40px_rgba(15,23,42,0.08)] flex-col h-full w-72">
+    <aside className="hidden lg:flex bg-sidebar border-r border-sidebar-border/70 shadow-sm flex-col h-full w-72">
       {/* Logo Section - Enhanced */}
-      <div className="border-b border-border/40 p-8">
+      <div className="border-b border-border/50 p-7">
         <div className="flex items-center gap-3.5">
-          <div className="h-12 w-12 rounded-xl bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20">
+          <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
             <Gem size={24} className="text-primary" />
           </div>
           <div className="flex-1">
@@ -83,10 +83,10 @@ export function Sidebar() {
                   key={name}
                   href={href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-4 py-3.5 text-sm font-medium transition-all duration-200 group border border-transparent relative",
+                    "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 group border border-border/60 relative",
                     active
-                      ? "bg-primary/10 text-primary border-primary/20 shadow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "bg-primary/10 text-foreground border-primary/30 shadow-sm"
+                      : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                   )}
                 >
                   {/* Active indicator line */}
@@ -108,7 +108,7 @@ export function Sidebar() {
                       <p
                         className={cn(
                           "text-xs leading-tight",
-                          active ? "text-primary/70" : "text-muted-foreground",
+                          active ? "text-primary/80" : "text-muted-foreground",
                         )}
                       >
                         {description}
@@ -129,8 +129,8 @@ export function Sidebar() {
       </div>
 
       {/* Footer Section - Enhanced */}
-      <div className="border-t border-border/40 p-6">
-        <div className="bg-muted/30 rounded-lg p-4 border border-border/40 space-y-2">
+      <div className="border-t border-border/50 p-6">
+        <div className="bg-muted/40 rounded-lg p-4 border border-border/50 space-y-2">
           <p className="text-xs font-semibold text-foreground uppercase tracking-wide">
             {t("nav.currentUser")}
           </p>

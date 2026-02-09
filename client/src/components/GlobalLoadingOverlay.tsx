@@ -16,11 +16,11 @@ export function GlobalLoadingOverlay() {
         isVisible ? "opacity-100" : "opacity-0 pointer-events-none",
       )}
     >
-      <div className="rounded-2xl border border-border/60 bg-[linear-gradient(160deg,var(--surface-1),var(--surface-2))] px-8 py-6 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
+      <div className="rounded-2xl border border-border/60 bg-card px-8 py-6 shadow-lg">
         <div className="flex flex-col items-center gap-4">
           <div className="relative h-12 w-12">
             <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
-            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
+            <div className="absolute inset-0 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
           </div>
           <div className="text-sm font-medium text-foreground">
             {t("common.loading")}

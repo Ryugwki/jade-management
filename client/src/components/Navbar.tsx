@@ -10,7 +10,7 @@ import {
   Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LanguageContext";
@@ -55,7 +55,7 @@ export function Navbar() {
     router.replace("/login");
   };
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!user) return;
     setNotificationsLoading(true);
     try {
@@ -65,7 +65,7 @@ export function Navbar() {
     } finally {
       setNotificationsLoading(false);
     }
-  };
+  }, [user]);
 
   const getNotificationHref = (item: notificationService.NotificationItem) => {
     if (item.type === "approval") return "/permission";
@@ -109,12 +109,53 @@ export function Navbar() {
     }
   };
 
+  const formatTimestamp = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSeconds = Math.round(diffMs / 1000);
+    if (diffSeconds < 60) return "Just now";
+
+    const diffMinutes = Math.round(diffSeconds / 60);
+    if (diffMinutes < 60) {
+      return new Intl.RelativeTimeFormat(undefined, {
+        numeric: "auto",
+      }).format(-diffMinutes, "minute");
+    }
+
+    const diffHours = Math.round(diffMinutes / 60);
+    const isSameDay = now.toDateString() === date.toDateString();
+    if (isSameDay) {
+      const time = new Intl.DateTimeFormat(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(date);
+      return `Today at ${time}`;
+    }
+
+    if (diffHours < 24) {
+      return new Intl.RelativeTimeFormat(undefined, {
+        numeric: "auto",
+      }).format(-diffHours, "hour");
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      year: now.getFullYear() === date.getFullYear() ? undefined : "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(date);
+  };
+
   useEffect(() => {
     loadNotifications();
-  }, [user?.role]);
+  }, [loadNotifications]);
 
   return (
-    <header className="bg-[linear-gradient(90deg,var(--surface-1),var(--surface-2))] border-b border-border/60 shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-colors duration-200 sticky top-0 z-40">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur">
       <div className="px-6 py-3.5 flex items-center justify-between gap-6">
         {/* Left Section - Search */}
         <div className="flex items-center gap-3 flex-1 max-w-xl">
@@ -125,7 +166,7 @@ export function Navbar() {
             />
             <Input
               placeholder={t("product.search")}
-              className="pl-10 bg-muted/30 border-border/50 focus:border-border placeholder:text-muted-foreground/60"
+              className="pl-10 bg-background border-border/70 focus:border-ring placeholder:text-muted-foreground/60"
             />
           </div>
         </div>
@@ -142,7 +183,7 @@ export function Navbar() {
               variant="ghost"
               size="icon"
               onClick={handleSettingsClick}
-              className="h-9 w-9 rounded-lg hover:bg-muted transition-all duration-200 group"
+              className="h-9 w-9 rounded-lg border border-border/60 bg-background hover:bg-muted transition-all duration-200 group"
               title={t("nav.settings")}
             >
               <Settings
@@ -152,10 +193,10 @@ export function Navbar() {
             </Button>
 
             {/* Messages Button */}
-            <Button
+            {/* <Button
               variant="ghost"
               size="icon"
-              className="relative h-9 w-9 rounded-lg hover:bg-muted transition-all duration-200 group"
+              className="relative h-9 w-9 rounded-lg border border-border/60 bg-background hover:bg-muted transition-all duration-200 group"
               title={t("nav.messages")}
             >
               <MessageSquare
@@ -165,7 +206,7 @@ export function Navbar() {
               <span className="absolute -top-1 -right-1 h-4 w-4 bg-amber-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold shadow-sm">
                 2
               </span>
-            </Button>
+            </Button> */}
 
             {/* Notifications Dropdown */}
             <DropdownMenu>
@@ -173,7 +214,7 @@ export function Navbar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative h-9 w-9 rounded-lg hover:bg-muted transition-all duration-200 group"
+                  className="relative h-9 w-9 rounded-lg border border-border/60 bg-background hover:bg-muted transition-all duration-200 group"
                   title={t("nav.notifications")}
                 >
                   <Bell
@@ -189,7 +230,7 @@ export function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-96 mt-2 shadow-lg border border-border/50 bg-popover rounded-lg"
+                className="w-96 mt-2 border border-border/60 bg-popover rounded-lg shadow-md"
               >
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
@@ -204,14 +245,16 @@ export function Navbar() {
                 </div>
 
                 {/* Notifications List */}
-                <div className="max-h-96 overflow-y-auto">
-                  {notificationsLoading ? (
-                    <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-                      {t("common.loading")}
-                    </div>
-                  ) : notifications.length > 0 ? (
-                    <div className="divide-y divide-border/40 p-2">
-                      {notifications.map((item) => (
+                <div className="relative max-h-96 overflow-y-auto">
+                  <div
+                    className={cn(
+                      "divide-y divide-border/40 p-2 transition duration-200",
+                      notificationsLoading &&
+                        "pointer-events-none blur-[1px] opacity-70",
+                    )}
+                  >
+                    {notifications.length > 0 ? (
+                      notifications.map((item) => (
                         <DropdownMenuItem
                           key={item.id}
                           onClick={() => handleNotificationClick(item)}
@@ -249,21 +292,43 @@ export function Navbar() {
                               {item.message}
                             </span>
                           )}
+                          <span className="text-[11px] text-muted-foreground">
+                            {formatTimestamp(item.createdAt)}
+                          </span>
                         </DropdownMenuItem>
-                      ))}
+                      ))
+                    ) : (
+                      <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+                        {t("nav.noNotifications")}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className={cn(
+                      "absolute inset-0 flex items-start justify-center pt-10 bg-popover/40 backdrop-blur-sm transition-opacity duration-200",
+                      notificationsLoading
+                        ? "opacity-100"
+                        : "opacity-0 pointer-events-none",
+                    )}
+                  >
+                    <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/80 px-3 py-2 text-xs text-muted-foreground shadow-sm">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-primary" />
+                      {t("common.loading")}
                     </div>
-                  ) : (
-                    <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-                      {t("nav.noNotifications")}
-                    </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Footer Actions */}
                 {notifications.length > 0 && (
                   <div className="border-t border-border/40 flex items-center divide-x divide-border/40 px-2 py-2">
                     <DropdownMenuItem
-                      onClick={loadNotifications}
+                      onSelect={(event) => {
+                        event.preventDefault();
+                        if (!notificationsLoading) {
+                          loadNotifications();
+                        }
+                      }}
+                      disabled={notificationsLoading}
                       className="flex-1 justify-center text-xs text-muted-foreground hover:text-primary font-medium transition-colors"
                     >
                       {t("nav.refresh")}

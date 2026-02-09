@@ -62,11 +62,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground transition-colors duration-200">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
       <div className="flex flex-col flex-1">
         <Navbar />
-        <main className="flex-1 overflow-auto bg-[linear-gradient(160deg,var(--surface-1),var(--surface-2))] p-6">
+        <main className="flex-1 overflow-auto bg-muted/30 p-6 lg:p-8">
           {children}
         </main>
       </div>

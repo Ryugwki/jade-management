@@ -37,7 +37,7 @@ const FeedbackContext = createContext<FeedbackContextValue | undefined>(
   undefined,
 );
 
-const DEFAULT_DURATION_MS = 500;
+const DEFAULT_DURATION_MS = 1200;
 
 export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
