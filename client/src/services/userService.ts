@@ -34,6 +34,14 @@ export async function deleteUser(id: string): Promise<void> {
   await api.delete(`/user/${id}`);
 }
 
+export async function updateUserStatus(
+  id: string,
+  isActive: boolean,
+): Promise<User> {
+  const response = await api.patch(`/user/${id}/status`, { isActive });
+  return response.data.user as User;
+}
+
 export async function changeMyPassword(payload: {
   currentPassword: string;
   newPassword: string;

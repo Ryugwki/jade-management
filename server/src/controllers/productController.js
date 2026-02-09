@@ -27,6 +27,8 @@ const sanitizeProduct = (product, role, permissions) => {
     certificateAuthority: product.certificateAuthority,
     certificateStatus: product.certificateStatus,
     certificateLink: product.certificateLink,
+    isActive: product.isActive !== false,
+    updatedBy: product.updatedBy?.toString(),
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
   };
@@ -67,7 +69,9 @@ export async function createProduct(req, res) {
   const product = await Product.create(payload);
   return res
     .status(201)
-    .json({ product: sanitizeProduct(product, req.user?.role, req.user?.permissions) });
+    .json({
+      product: sanitizeProduct(product, req.user?.role, req.user?.permissions),
+    });
 }
 
 export async function updateProduct(req, res) {
@@ -78,9 +82,31 @@ export async function updateProduct(req, res) {
   if (payload.images?.length && !payload.image) {
     payload.image = payload.images[0];
   }
+  payload.updatedBy = req.user?.id;
   const product = await Product.findByIdAndUpdate(req.params.id, payload, {
     new: true,
   }).exec();
+
+  if (!product) {
+    return res.status(404).json({ message: "Product not found" });
+  }
+
+  return res.json({
+    product: sanitizeProduct(product, req.user?.role, req.user?.permissions),
+  });
+}
+
+export async function updateProductStatus(req, res) {
+  const { isActive } = req.body || {};
+  if (typeof isActive !== "boolean") {
+    return res.status(400).json({ message: "isActive required" });
+  }
+
+  const product = await Product.findByIdAndUpdate(
+    req.params.id,
+    { isActive, updatedBy: req.user?.id },
+    { new: true },
+  ).exec();
 
   if (!product) {
     return res.status(404).json({ message: "Product not found" });

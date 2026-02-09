@@ -9,6 +9,8 @@ const toSafeUser = (user) => ({
   email: user.email,
   role: normalizeRole(user.role),
   permissions: user.permissions || {},
+  isActive: user.isActive !== false,
+  updatedBy: user.updatedBy?.toString(),
   phone: user.phone || "",
   address: user.address || "",
   avatarUrl: user.avatarUrl || "",
@@ -85,9 +87,34 @@ export async function updateUser(req, res) {
     delete payload.permissions;
   }
 
+  payload.updatedBy = req.user?.id;
+
   const user = await User.findByIdAndUpdate(req.params.id, payload, {
     new: true,
   }).exec();
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  return res.json({ user: toSafeUser(user) });
+}
+
+export async function updateUserStatus(req, res) {
+  if (req.user?.role !== "SUPER_ADMIN") {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  const { isActive } = req.body || {};
+  if (typeof isActive !== "boolean") {
+    return res.status(400).json({ message: "isActive required" });
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isActive, updatedBy: req.user?.id },
+    { new: true },
+  ).exec();
 
   if (!user) {
     return res.status(404).json({ message: "User not found" });

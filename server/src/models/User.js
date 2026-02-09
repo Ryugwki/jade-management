@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema(
       of: String,
       default: {},
     },
+    isActive: { type: Boolean, default: true },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     phone: { type: String, default: "" },
     address: { type: String, default: "" },
     avatarUrl: { type: String, default: "" },

@@ -14,6 +14,8 @@ export interface User {
   role: UserRole;
   password?: string;
   permissions?: Record<string, UserPermissionLevel>;
+  isActive?: boolean;
+  updatedBy?: string;
   phone?: string;
   address?: string;
   avatarUrl?: string;

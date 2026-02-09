@@ -5,6 +5,7 @@ import {
   deleteUser,
   getUser,
   listUsers,
+  updateUserStatus,
   updateUser,
 } from "../controllers/userController.js";
 import {
@@ -20,6 +21,7 @@ router.post("/me/password", changePassword);
 router.get("/", requireSuperAdmin, listUsers);
 router.post("/", requireSuperAdmin, createUser);
 router.get("/:id", getUser);
+router.patch("/:id/status", requireSuperAdmin, updateUserStatus);
 router.put("/:id", updateUser);
 router.delete("/:id", requireSuperAdmin, deleteUser);
 

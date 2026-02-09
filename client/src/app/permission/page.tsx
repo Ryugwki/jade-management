@@ -58,11 +58,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { StatusBadge } from "@/components/StatusBadge";
+import { ActionMenu } from "@/components/ActionMenu";
 
 const display = Playfair_Display({ subsets: ["latin"], weight: ["600"] });
 const body = Space_Grotesk({
@@ -91,6 +103,8 @@ type User = {
   email?: string;
   role: UserRole;
   permissions?: Record<string, UserPermissionLevel>;
+  isActive?: boolean;
+  updatedBy?: string;
 };
 
 const defaultRoleCards: RoleCard[] = [
@@ -367,6 +381,17 @@ export default function PermissionPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
+  const [roleUpdating, setRoleUpdating] = useState<Record<string, boolean>>({});
+  const [userStatusOpen, setUserStatusOpen] = useState(false);
+  const [userStatusLoading, setUserStatusLoading] = useState(false);
+  const [userStatusLoadingId, setUserStatusLoadingId] = useState<string | null>(
+    null,
+  );
+  const [userStatusTarget, setUserStatusTarget] = useState<User | null>(null);
+  const [deleteUserOpen, setDeleteUserOpen] = useState(false);
+  const [deleteUserLoading, setDeleteUserLoading] = useState(false);
+  const [deleteUserTarget, setDeleteUserTarget] = useState<User | null>(null);
+  const [editPermissionsSaving, setEditPermissionsSaving] = useState(false);
   const [lockStatus, setLockStatus] = useState<LockStatus>("enforced");
   const [overrideExpiresAt, setOverrideExpiresAt] = useState<string | null>(
     null,
@@ -715,6 +740,7 @@ export default function PermissionPage() {
           updateTimeouts.current[key] = window.setTimeout(() => {
             setPermissionUpdates((prev) => ({ ...prev, [key]: false }));
           }, 1600);
+          toast.success(t("permission.matrix.updated"));
         })
         .catch(() => {
           setPermissionMatrix(previousMatrix);
@@ -870,6 +896,7 @@ export default function PermissionPage() {
   };
 
   const handleRoleUpdate = async (userId: string, nextRole: UserRole) => {
+    setRoleUpdating((prev) => ({ ...prev, [userId]: true }));
     try {
       const updated = await userService.updateUser(userId, {
         role: nextRole,
@@ -882,34 +909,49 @@ export default function PermissionPage() {
           name: updated.email || updated.name,
         }),
       );
+      toast.success(t("permission.users.roleUpdated"));
     } catch {
       logAudit(t("permission.audit.updateRoleFailed"));
+      toast.error(t("permission.users.roleFailed"));
+    } finally {
+      setRoleUpdating((prev) => ({ ...prev, [userId]: false }));
     }
   };
 
-  const handleDeleteUser = async (target: User) => {
+  const handleDeleteUser = (target: User) => {
     if (target.id === user?.id) {
       setUsersError(t("permission.users.cannotDeleteSelf"));
       return;
     }
-    const confirmed = window.confirm(
-      t("permission.users.deleteConfirm", {
-        name: target.email || target.name || t("permission.users.thisUser"),
-      }),
-    );
-    if (!confirmed) return;
+    setDeleteUserTarget(target);
+    setDeleteUserOpen(true);
+  };
 
+  const handleConfirmDeleteUser = async () => {
+    if (!deleteUserTarget) return;
     setUsersError("");
+    setDeleteUserLoading(true);
     try {
-      await userService.deleteUser(target.id);
-      setUsers((prev) => prev.filter((item) => item.id !== target.id));
+      await userService.deleteUser(deleteUserTarget.id);
+      setUsers((prev) =>
+        prev.filter((item) => item.id !== deleteUserTarget.id),
+      );
       logAudit(
         t("permission.audit.deletedUser", {
-          name: target.email || target.name || t("permission.users.thisUser"),
+          name:
+            deleteUserTarget.email ||
+            deleteUserTarget.name ||
+            t("permission.users.thisUser"),
         }),
       );
+      toast.success(t("permission.users.deleteSuccess"));
     } catch {
       setUsersError(t("permission.users.deleteFailed"));
+      toast.error(t("permission.users.deleteFailed"));
+    } finally {
+      setDeleteUserLoading(false);
+      setDeleteUserOpen(false);
+      setDeleteUserTarget(null);
     }
   };
 
@@ -940,6 +982,7 @@ export default function PermissionPage() {
 
   const handleSavePermissions = async () => {
     if (!editingUser) return;
+    setEditPermissionsSaving(true);
     try {
       const updated = await userService.updateUser(editingUser.id, {
         permissions: permissionDraft,
@@ -966,9 +1009,42 @@ export default function PermissionPage() {
           name: updated.email || updated.name,
         }),
       );
+      toast.success(t("permission.users.permissionsUpdated"));
       setEditPermissionsOpen(false);
     } catch {
       logAudit(t("permission.audit.updatePermissionsFailed"));
+      toast.error(t("permission.users.permissionsFailed"));
+    } finally {
+      setEditPermissionsSaving(false);
+    }
+  };
+
+  const openUserStatusDialog = (target: User) => {
+    setUserStatusTarget(target);
+    setUserStatusOpen(true);
+  };
+
+  const handleConfirmUserStatus = async () => {
+    if (!userStatusTarget) return;
+    const nextIsActive = userStatusTarget.isActive === false;
+    setUserStatusLoading(true);
+    setUserStatusLoadingId(userStatusTarget.id);
+    try {
+      const updated = await userService.updateUserStatus(
+        userStatusTarget.id,
+        nextIsActive,
+      );
+      setUsers((prev) =>
+        prev.map((entry) => (entry.id === updated.id ? updated : entry)),
+      );
+      toast.success(t("status.updateSuccess"));
+    } catch {
+      toast.error(t("status.updateFailed"));
+    } finally {
+      setUserStatusLoading(false);
+      setUserStatusLoadingId(null);
+      setUserStatusOpen(false);
+      setUserStatusTarget(null);
     }
   };
 
@@ -1026,7 +1102,7 @@ export default function PermissionPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="w-full space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -1056,7 +1132,7 @@ export default function PermissionPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
+  <section className="w-full space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -1127,8 +1203,8 @@ export default function PermissionPage() {
             </h2>
           </div>
         </div>
-        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] items-start">
-          <Card className="border-border/60 shadow-sm">
+        <div className="w-full space-y-4">
+          <Card className="w-full border-border/60 shadow-sm">
             <CardHeader>
               <CardTitle>{t("permission.guardrails.title")}</CardTitle>
               <CardDescription>
@@ -1212,8 +1288,8 @@ export default function PermissionPage() {
             </h2>
           </div>
         </div>
-        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] items-start">
-          <Card className="border-border/60 shadow-sm">
+        <div className="w-full">
+          <Card className="w-full border-border/60 shadow-sm">
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>{t("permission.access.title")}</CardTitle>
@@ -1243,102 +1319,118 @@ export default function PermissionPage() {
                     {t("permission.users.loading")}
                   </div>
                 ) : users.length ? (
-                  users.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="rounded-lg border border-border/70 bg-muted/40 p-3"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                        <div>
-                          <div className="text-sm font-medium">
-                            {entry.name || t("permission.users.fallbackName")}
+                  users.map((entry) => {
+                    const isActive = entry.isActive !== false;
+                    const isRoleUpdating = Boolean(roleUpdating[entry.id]);
+                    const isStatusLoading = userStatusLoadingId === entry.id;
+                    const isRowBusy = isRoleUpdating || isStatusLoading;
+                    return (
+                      <div
+                        key={entry.id}
+                        className={cn(
+                          "rounded-lg border border-border/70 bg-muted/40 p-4 shadow-sm",
+                          !isActive && "opacity-70 grayscale",
+                        )}
+                      >
+                        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:items-center">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="text-sm font-medium">
+                                {entry.name ||
+                                  t("permission.users.fallbackName")}
+                              </div>
+                              <StatusBadge isActive={isActive} />
+                              <Badge
+                                variant="secondary"
+                                className="border-border/60"
+                              >
+                                {entry.role === "SUPER_ADMIN"
+                                  ? t("role.superAdmin")
+                                  : entry.role === "ADMIN"
+                                    ? t("role.admin")
+                                    : t("role.guest")}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {entry.email || t("permission.users.noEmail")}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {entry.email || t("permission.users.noEmail")}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 sm:ml-auto">
-                          <Select
-                            value={entry.role}
-                            onValueChange={(value) =>
-                              handleRoleUpdate(entry.id, value as UserRole)
-                            }
-                          >
-                            <SelectTrigger className="h-8 min-w-32.5">
-                              <SelectValue
-                                placeholder={t("permission.users.selectRole")}
+                          <div className="flex w-full flex-wrap items-center gap-3 sm:justify-end">
+                            <div className="flex min-w-37.5 flex-col gap-1">
+                              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                {t("permission.users.changeRole")}
+                              </Label>
+                              <Select
+                                value={entry.role}
+                                disabled={!isActive || isRoleUpdating}
+                                onValueChange={(value) =>
+                                  handleRoleUpdate(entry.id, value as UserRole)
+                                }
+                              >
+                                <SelectTrigger className="h-8 min-w-32.5">
+                                  <SelectValue
+                                    placeholder={t(
+                                      "permission.users.selectRole",
+                                    )}
+                                  />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="SUPER_ADMIN">
+                                    {t("role.superAdmin")}
+                                  </SelectItem>
+                                  <SelectItem value="ADMIN">
+                                    {t("role.admin")}
+                                  </SelectItem>
+                                  <SelectItem value="GUEST">
+                                    {t("role.guest")}
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenEditPermissions(entry)}
+                                disabled={!isActive || isRowBusy}
+                              >
+                                {t("permission.users.editPermissions")}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openUserStatusDialog(entry)}
+                                disabled={userStatusLoading || isStatusLoading}
+                              >
+                                {isStatusLoading
+                                  ? t("common.loading")
+                                  : isActive
+                                    ? t("status.deactivate")
+                                    : t("status.activate")}
+                              </Button>
+                              <ActionMenu
+                                items={[
+                                  {
+                                    label: t("permission.users.delete"),
+                                    onClick: () => handleDeleteUser(entry),
+                                    disabled:
+                                      entry.id === user?.id ||
+                                      deleteUserLoading ||
+                                      isRowBusy,
+                                    destructive: true,
+                                  },
+                                ]}
                               />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="SUPER_ADMIN">
-                                {t("role.superAdmin")}
-                              </SelectItem>
-                              <SelectItem value="ADMIN">
-                                {t("role.admin")}
-                              </SelectItem>
-                              <SelectItem value="GUEST">
-                                {t("role.guest")}
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenEditPermissions(entry)}
-                          >
-                            {t("permission.users.editPermissions")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeleteUser(entry)}
-                            disabled={entry.id === user?.id}
-                          >
-                            {t("permission.users.delete")}
-                          </Button>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="text-xs text-muted-foreground">
                     {t("permission.users.empty")}
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/60 shadow-sm">
-            <CardHeader>
-              <CardTitle>
-                {t("permission.section.access.summaryTitle")}
-              </CardTitle>
-              <CardDescription>
-                {t("permission.section.access.summarySubtitle")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">
-                  {t("permission.section.access.totalUsers")}
-                </span>
-                <span className="font-medium">
-                  {usersLoading ? t("common.loadingShort") : users.length}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">
-                  {t("permission.section.access.policyStatus")}
-                </span>
-                <span className="font-medium">
-                  {policyLoading
-                    ? t("permission.section.access.syncing")
-                    : t("permission.section.access.synced")}
-                </span>
-              </div>
-              <div className="rounded-lg border border-border/70 bg-muted/40 p-3 text-xs text-muted-foreground">
-                {t("permission.access.helper")}
               </div>
             </CardContent>
           </Card>
@@ -1864,12 +1956,92 @@ export default function PermissionPage() {
             <Button
               className="bg-sky-500 text-white hover:bg-sky-600"
               onClick={handleSavePermissions}
+              disabled={editPermissionsSaving}
             >
-              {t("permission.edit.save")}
+              {editPermissionsSaving
+                ? t("common.loading")
+                : t("permission.edit.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={userStatusOpen} onOpenChange={setUserStatusOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("status.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  {t("status.confirmUser", {
+                    action:
+                      userStatusTarget?.isActive === false
+                        ? t("status.activate")
+                        : t("status.deactivate"),
+                    name:
+                      userStatusTarget?.email ||
+                      userStatusTarget?.name ||
+                      t("permission.users.thisUser"),
+                  })}
+                </p>
+                <p>
+                  {userStatusTarget?.isActive === false
+                    ? t("permission.users.activateHelp")
+                    : t("permission.users.deactivateHelp")}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmUserStatus}
+              disabled={userStatusLoading}
+            >
+              {userStatusLoading
+                ? t("common.loading")
+                : userStatusTarget?.isActive === false
+                  ? t("status.activate")
+                  : t("status.deactivate")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteUserOpen} onOpenChange={setDeleteUserOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("permission.users.deleteTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  {t("permission.users.deleteConfirm", {
+                    name:
+                      deleteUserTarget?.email ||
+                      deleteUserTarget?.name ||
+                      t("permission.users.thisUser"),
+                  })}
+                </p>
+                <p>{t("permission.users.deleteDescription")}</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteUser}
+              disabled={deleteUserLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteUserLoading
+                ? t("common.loading")
+                : t("permission.users.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -7,6 +7,18 @@ import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { StatusBadge } from "@/components/StatusBadge";
+import {
   InfoRowItem,
   SpecificationList,
   CertificateStatusBadge,
@@ -17,6 +29,7 @@ import * as productService from "@/services/productService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LanguageContext";
 import * as permissionService from "@/services/permissionService";
+import { toast } from "sonner";
 
 const normalizeStatus = (status?: CertificateStatus) =>
   status ? status.toLowerCase() : "unverified";
@@ -46,12 +59,22 @@ export default function ProductDetailsPage() {
   const [error, setError] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
   const [requestLoading, setRequestLoading] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const hasBuyingPrice =
     product?.buyingPrice !== undefined &&
     product?.buyingPrice !== null &&
     product?.buyingPrice !== "";
   const showBuyingPrice = canViewBuyingPrice || hasBuyingPrice;
+
+  const normalizeProduct = (data: Product): Product => ({
+    ...data,
+    images: data.images?.length ? data.images : data.image ? [data.image] : [],
+    image: data.images?.[0] || data.image,
+  });
 
   const formatStatusBadge = (
     status?: CertificateStatus,
@@ -171,6 +194,30 @@ export default function ProductDetailsPage() {
     }
   };
 
+  const handleOpenPreview = (url: string) => {
+    setPreviewImage(url);
+    setPreviewOpen(true);
+  };
+
+  const handleConfirmStatus = async () => {
+    if (!product) return;
+    const nextIsActive = product.isActive === false;
+    setStatusLoading(true);
+    try {
+      const updated = await productService.updateProductStatus(
+        product.id,
+        nextIsActive,
+      );
+      setProduct((prev) => (prev ? normalizeProduct(updated) : prev));
+      toast.success(t("status.updateSuccess"));
+    } catch {
+      toast.error(t("status.updateFailed"));
+    } finally {
+      setStatusLoading(false);
+      setStatusOpen(false);
+    }
+  };
+
   useEffect(() => {
     if (!id) return;
     const load = async () => {
@@ -178,16 +225,7 @@ export default function ProductDetailsPage() {
       setError("");
       try {
         const data = await productService.getProduct(id);
-        const normalized: Product = {
-          ...data,
-          images: data.images?.length
-            ? data.images
-            : data.image
-              ? [data.image]
-              : [],
-          image: data.images?.[0] || data.image,
-        };
-        setProduct(normalized);
+        setProduct(normalizeProduct(data));
       } catch {
         setError(t("product.error.load"));
       } finally {
@@ -218,192 +256,278 @@ export default function ProductDetailsPage() {
 
   const dimensionEntries = getDimensionEntriesL(product);
 
+  const isActive = product.isActive !== false;
+
   const primaryImage = product.images?.[0];
   const secondaryImages = product.images?.slice(1) ?? [];
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            {t("product.label.gemstone")}
-          </p>
-          <h1 className="text-3xl md:text-4xl font-semibold text-foreground">
-            {formatGemstoneTypeL(product.gemstoneType) ||
-              formatJewelryTypeL(product.jewelryType) ||
-              t("product.label.gemstone")}
-          </h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <CertificateStatusBadge
-            status={formatStatusBadge(product.certificateStatus)}
-            large
-          />
-          <Button asChild variant="outline" className="whitespace-nowrap">
-            <Link href="/product">{t("common.update")}</Link>
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-        <section className="rounded-xl border border-border/60 bg-card p-4">
-          <div className="flex items-center justify-between gap-2 pb-3">
-            <h2 className="text-sm font-semibold text-foreground">
-              {t("product.label.image")}
-            </h2>
-            {primaryImage && (
-              <Badge variant="secondary" className="border-border/60">
-                {t("product.image.primary")}
-              </Badge>
-            )}
+    <>
+      <div className="mx-auto w-full max-w-6xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              {t("product.label.gemstone")}
+            </p>
+            <h1 className="text-3xl md:text-4xl font-semibold text-foreground">
+              {formatGemstoneTypeL(product.gemstoneType) ||
+                formatJewelryTypeL(product.jewelryType) ||
+                t("product.label.gemstone")}
+            </h1>
           </div>
-          {primaryImage ? (
-            <div className="space-y-4">
-              <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border/60 bg-muted">
-                <Image
-                  src={primaryImage}
-                  alt={t("product.image.altIndex", { index: 1 })}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
-              {secondaryImages.length > 0 && (
-                <div className="grid grid-cols-4 gap-3">
-                  {secondaryImages.map((url, index) => (
-                    <div
-                      key={`${url}-${index + 1}`}
-                      className="relative aspect-square overflow-hidden rounded-md border border-border/60 bg-muted"
-                    >
-                      <Image
-                        src={url}
-                        alt={t("product.image.altIndex", { index: index + 2 })}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  ))}
-                </div>
+          <div className="flex items-center gap-3">
+            <StatusBadge isActive={isActive} />
+            <CertificateStatusBadge
+              status={formatStatusBadge(product.certificateStatus)}
+              large
+            />
+            <Button asChild className="whitespace-nowrap">
+              <Link href="/product">{t("product.action.edit")}</Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="whitespace-nowrap"
+              onClick={() => setStatusOpen(true)}
+              disabled={statusLoading}
+            >
+              {statusLoading
+                ? t("common.loading")
+                : isActive
+                  ? t("status.deactivate")
+                  : t("status.activate")}
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+          <section className="rounded-xl border border-border/60 bg-card p-4">
+            <div className="flex items-center justify-between gap-2 pb-3">
+              <h2 className="text-sm font-semibold text-foreground">
+                {t("product.label.image")}
+              </h2>
+              {primaryImage && (
+                <Badge variant="secondary" className="border-border/60">
+                  {t("product.image.primary")}
+                </Badge>
               )}
             </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border/70 bg-muted/40 py-16 text-center text-sm text-muted-foreground">
-              {t("product.image.none")}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-xl border border-border/60 bg-card">
-          <div className="space-y-6 p-5">
-            <div className="space-y-3">
-              <h2 className="text-base font-semibold text-foreground">
-                {t("product.info.basicInformation")}
-              </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {product.description || t("product.description.empty")}
-              </p>
-              <div className="space-y-1">
-                <InfoRowItem
-                  label={t("product.label.gemstone")}
-                  value={formatGemstoneTypeL(product.gemstoneType)}
-                />
-                <InfoRowItem
-                  label={t("product.label.jewelry")}
-                  value={formatJewelryTypeL(product.jewelryType)}
-                />
-                <InfoRowItem
-                  label={t("product.label.color")}
-                  value={product.colorType}
-                />
+            {primaryImage ? (
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={() => handleOpenPreview(primaryImage)}
+                  className="group relative aspect-square w-full overflow-hidden rounded-lg border border-border/60 bg-muted"
+                  aria-label={t("product.image.preview")}
+                >
+                  <Image
+                    src={primaryImage}
+                    alt={t("product.image.altIndex", { index: 1 })}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 text-xs font-medium text-white opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100">
+                    {t("product.image.preview")}
+                  </div>
+                </button>
+                {secondaryImages.length > 0 && (
+                  <div className="grid grid-cols-4 gap-3">
+                    {secondaryImages.map((url, index) => (
+                      <button
+                        key={`${url}-${index + 1}`}
+                        type="button"
+                        onClick={() => handleOpenPreview(url)}
+                        className="group relative aspect-square overflow-hidden rounded-md border border-border/60 bg-muted"
+                        aria-label={t("product.image.preview")}
+                      >
+                        <Image
+                          src={url}
+                          alt={t("product.image.altIndex", {
+                            index: index + 2,
+                          })}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          unoptimized
+                        />
+                        <div className="absolute inset-0 bg-black/0 opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-
-            {dimensionEntries.length > 0 && (
-              <div className="space-y-3 border-t border-border/40 pt-5">
-                <h2 className="text-base font-semibold text-foreground">
-                  {t("product.info.dimensions")}
-                </h2>
-                <SpecificationList specs={dimensionEntries} />
+            ) : (
+              <div className="rounded-lg border border-dashed border-border/70 bg-muted/40 py-16 text-center text-sm text-muted-foreground">
+                {t("product.image.none")}
               </div>
             )}
+          </section>
 
-            <div className="space-y-4 border-t border-border/40 pt-5">
-              <h2 className="text-base font-semibold text-foreground">
-                {t("product.info.pricing")}
-              </h2>
-              <div className="grid gap-4">
-                <PriceDisplay
-                  label={t("product.label.sellingPrice")}
-                  value={formatMoney(product.sellingPrice)}
-                  size="lg"
-                  highlight
-                />
-                <div className="rounded-lg border border-border/50 bg-muted/40 p-4">
-                  <PriceDisplay
-                    label={t("product.label.buyingPrice")}
-                    value={
-                      showBuyingPrice ? formatMoney(product.buyingPrice) : "—"
-                    }
-                    size="md"
+          <section className="rounded-xl border border-border/60 bg-card">
+            <div className="space-y-6 p-5">
+              <div className="space-y-3">
+                <h2 className="text-base font-semibold text-foreground">
+                  {t("product.info.basicInformation")}
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {product.description || t("product.description.empty")}
+                </p>
+                <div className="space-y-1">
+                  <InfoRowItem
+                    label={t("product.label.gemstone")}
+                    value={formatGemstoneTypeL(product.gemstoneType)}
                   />
-                  {!showBuyingPrice && (
-                    <div className="mt-3 flex flex-col gap-2.5">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={requestLoading}
-                        onClick={handleRequestBuyingPrice}
-                        className="w-full"
+                  <InfoRowItem
+                    label={t("product.label.jewelry")}
+                    value={formatJewelryTypeL(product.jewelryType)}
+                  />
+                  <InfoRowItem
+                    label={t("product.label.color")}
+                    value={product.colorType}
+                  />
+                </div>
+              </div>
+
+              {dimensionEntries.length > 0 && (
+                <div className="space-y-3 border-t border-border/40 pt-5">
+                  <h2 className="text-base font-semibold text-foreground">
+                    {t("product.info.dimensions")}
+                  </h2>
+                  <SpecificationList specs={dimensionEntries} />
+                </div>
+              )}
+
+              <div className="space-y-4 border-t border-border/40 pt-5">
+                <h2 className="text-base font-semibold text-foreground">
+                  {t("product.info.pricing")}
+                </h2>
+                <div className="grid gap-4">
+                  <PriceDisplay
+                    label={t("product.label.sellingPrice")}
+                    value={formatMoney(product.sellingPrice)}
+                    size="lg"
+                    highlight
+                  />
+                  <div className="rounded-lg border border-border/50 bg-muted/40 p-4">
+                    <PriceDisplay
+                      label={t("product.label.buyingPrice")}
+                      value={
+                        showBuyingPrice ? formatMoney(product.buyingPrice) : "—"
+                      }
+                      size="md"
+                    />
+                    {!showBuyingPrice && (
+                      <div className="mt-3 flex flex-col gap-2.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={requestLoading}
+                          onClick={handleRequestBuyingPrice}
+                          className="w-full"
+                        >
+                          {requestLoading
+                            ? t("common.loading")
+                            : t("product.action.requestAccess")}
+                        </Button>
+                        {requestMessage && (
+                          <p className="text-xs text-muted-foreground text-center">
+                            {requestMessage}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 border-t border-border/40 pt-5">
+                <h2 className="text-base font-semibold text-foreground">
+                  {t("product.info.certification")}
+                </h2>
+                <div className="space-y-1">
+                  <InfoRowItem
+                    label={t("product.label.certificateId")}
+                    value={product.certificateId}
+                  />
+                  <InfoRowItem
+                    label={t("product.label.certificateAuthority")}
+                    value={product.certificateAuthority}
+                  />
+                  {product.certificateLink && (
+                    <div className="flex items-center justify-between py-3 border-b border-border/40">
+                      <span className="text-sm text-muted-foreground font-medium">
+                        {t("product.label.certificateImage")}
+                      </span>
+                      <a
+                        href={product.certificateLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                       >
-                        {requestLoading
-                          ? t("common.loading")
-                          : t("product.action.requestAccess")}
-                      </Button>
-                      {requestMessage && (
-                        <p className="text-xs text-muted-foreground text-center">
-                          {requestMessage}
-                        </p>
-                      )}
+                        {t("common.view")} →
+                      </a>
                     </div>
                   )}
                 </div>
               </div>
             </div>
-
-            <div className="space-y-3 border-t border-border/40 pt-5">
-              <h2 className="text-base font-semibold text-foreground">
-                {t("product.info.certification")}
-              </h2>
-              <div className="space-y-1">
-                <InfoRowItem
-                  label={t("product.label.certificateId")}
-                  value={product.certificateId}
-                />
-                <InfoRowItem
-                  label={t("product.label.certificateAuthority")}
-                  value={product.certificateAuthority}
-                />
-                {product.certificateLink && (
-                  <div className="flex items-center justify-between py-3 border-b border-border/40">
-                    <span className="text-sm text-muted-foreground font-medium">
-                      {t("product.label.certificateImage")}
-                    </span>
-                    <a
-                      href={product.certificateLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                    >
-                      {t("common.view")} →
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
-    </div>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-3xl">
+          {previewImage ? (
+            <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border/60 bg-muted">
+              <Image
+                src={previewImage}
+                alt={t("product.image.preview")}
+                fill
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={statusOpen} onOpenChange={setStatusOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("status.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>
+                  {t("status.confirmProduct", {
+                    action: isActive
+                      ? t("status.deactivate")
+                      : t("status.activate"),
+                    name:
+                      product?.gemstoneType ||
+                      product?.jewelryType ||
+                      t("product.label.gemstone"),
+                  })}
+                </p>
+                <p>
+                  {isActive
+                    ? t("product.status.deactivateHelp")
+                    : t("product.status.activateHelp")}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmStatus}
+              disabled={statusLoading}
+            >
+              {statusLoading
+                ? t("common.loading")
+                : isActive
+                  ? t("status.deactivate")
+                  : t("status.activate")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

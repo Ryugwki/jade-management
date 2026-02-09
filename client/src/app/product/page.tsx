@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
+import { ActionMenu } from "@/components/ActionMenu";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -41,8 +43,21 @@ import { useFeedback } from "@/contexts/FeedbackContext";
 import * as productService from "@/services/productService";
 import { uploadImageBase64 } from "@/services/uploadService";
 import * as permissionService from "@/services/permissionService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function ProductPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { t, language } = useTranslation();
   const { startLoading, stopLoading } = useLoading();
@@ -73,31 +88,47 @@ export default function ProductPage() {
   const [selectedFilesLabel, setSelectedFilesLabel] = useState(() =>
     t("product.noFile"),
   );
+  const [productStatusOpen, setProductStatusOpen] = useState(false);
+  const [productStatusLoading, setProductStatusLoading] = useState(false);
+  const [productStatusTarget, setProductStatusTarget] =
+    useState<Product | null>(null);
 
-  const jewelryTypeOptions = [
-    { value: "Bracelet", label: t("product.jewelry.bracelet") },
-    { value: "Beadedbracelet", label: t("product.jewelry.beadedBracelet") },
-    { value: "Pendant", label: t("product.jewelry.pendant") },
-    { value: "Earrings", label: t("product.jewelry.earrings") },
-    { value: "Rings", label: t("product.jewelry.rings") },
-  ];
+  const jewelryTypeOptions = useMemo(
+    () => [
+      { value: "Bracelet", label: t("product.jewelry.bracelet") },
+      {
+        value: "Beadedbracelet",
+        label: t("product.jewelry.beadedBracelet"),
+      },
+      { value: "Pendant", label: t("product.jewelry.pendant") },
+      { value: "Earrings", label: t("product.jewelry.earrings") },
+      { value: "Rings", label: t("product.jewelry.rings") },
+    ],
+    [t],
+  );
 
-  const jewelryTypeLabels: Record<string, string> = {
-    Bracelet: t("jewelry.bracelet"),
-    Beadedbracelet: t("jewelry.beadedBracelet"),
-    Pendant: t("jewelry.pendant"),
-    Earrings: t("jewelry.earrings"),
-    Rings: t("jewelry.rings"),
-  };
+  const jewelryTypeLabels = useMemo<Record<string, string>>(
+    () => ({
+      Bracelet: t("jewelry.bracelet"),
+      Beadedbracelet: t("jewelry.beadedBracelet"),
+      Pendant: t("jewelry.pendant"),
+      Earrings: t("jewelry.earrings"),
+      Rings: t("jewelry.rings"),
+    }),
+    [t],
+  );
 
-  const gemstoneTypeOptions = [
-    { value: "Nuo", label: t("gemstone.nuo") },
-    { value: "Nuo transformation", label: t("gemstone.nuoTransformation") },
-    { value: "Nuo ice", label: t("gemstone.nuoIce") },
-    { value: "Ice", label: t("gemstone.ice") },
-    { value: "High ice", label: t("gemstone.highIce") },
-    { value: "Glass", label: t("gemstone.glass") },
-  ];
+  const gemstoneTypeOptions = useMemo(
+    () => [
+      { value: "Nuo", label: t("gemstone.nuo") },
+      { value: "Nuo transformation", label: t("gemstone.nuoTransformation") },
+      { value: "Nuo ice", label: t("gemstone.nuoIce") },
+      { value: "Ice", label: t("gemstone.ice") },
+      { value: "High ice", label: t("gemstone.highIce") },
+      { value: "Glass", label: t("gemstone.glass") },
+    ],
+    [t],
+  );
 
   const earringTypeOptions = [
     { value: "stud", label: t("product.earring.stud") },
@@ -123,23 +154,30 @@ export default function ProductPage() {
     { value: "200-500", label: t("product.price.200to500") },
   ];
 
-  const gemstoneTypeLabels = gemstoneTypeOptions.reduce<Record<string, string>>(
-    (acc, item) => {
-      acc[item.value] = item.label;
-      return acc;
-    },
-    {},
+  const gemstoneTypeLabels = useMemo(
+    () =>
+      gemstoneTypeOptions.reduce<Record<string, string>>((acc, item) => {
+        acc[item.value] = item.label;
+        return acc;
+      }, {}),
+    [gemstoneTypeOptions],
   );
 
-  const formatGemstoneType = (value?: Product["gemstoneType"]) => {
-    if (!value) return "";
-    return gemstoneTypeLabels[value] || value;
-  };
+  const formatGemstoneType = useCallback(
+    (value?: Product["gemstoneType"]) => {
+      if (!value) return "";
+      return gemstoneTypeLabels[value] || value;
+    },
+    [gemstoneTypeLabels],
+  );
 
-  const formatJewelryType = (value?: Product["jewelryType"]) => {
-    if (!value) return "";
-    return jewelryTypeLabels[value] || value;
-  };
+  const formatJewelryType = useCallback(
+    (value?: Product["jewelryType"]) => {
+      if (!value) return "";
+      return jewelryTypeLabels[value] || value;
+    },
+    [jewelryTypeLabels],
+  );
 
   const earringTypeLabels = earringTypeOptions.reduce<Record<string, string>>(
     (acc, item) => {
@@ -255,19 +293,22 @@ export default function ProductPage() {
     setSelectedFilesLabel(t("product.noFile"));
   }, [language, t]);
 
-  const parsePriceValue = (value?: string) => {
+  const parsePriceValue = useCallback((value?: string) => {
     if (!value) return null;
     const match = value.replace(",", ".").match(/\d+(?:\.\d+)?/);
     return match ? Number.parseFloat(match[0]) : null;
-  };
+  }, []);
 
-  const isInSelectedPriceRange = (value?: string) => {
-    if (!selectedPriceRange) return true;
-    const parsed = parsePriceValue(value);
-    if (parsed === null) return false;
-    const [min, max] = selectedPriceRange.split("-").map(Number);
-    return parsed >= min && parsed <= max;
-  };
+  const isInSelectedPriceRange = useCallback(
+    (value?: string) => {
+      if (!selectedPriceRange) return true;
+      const parsed = parsePriceValue(value);
+      if (parsed === null) return false;
+      const [min, max] = selectedPriceRange.split("-").map(Number);
+      return parsed >= min && parsed <= max;
+    },
+    [parsePriceValue, selectedPriceRange],
+  );
 
   const filteredProducts = useMemo(
     () =>
@@ -494,151 +535,198 @@ export default function ProductPage() {
     }
   };
 
+  const openProductStatusDialog = (target: Product) => {
+    setProductStatusTarget(target);
+    setProductStatusOpen(true);
+  };
+
+  const handleConfirmProductStatus = async () => {
+    if (!productStatusTarget) return;
+    const nextIsActive = productStatusTarget.isActive === false;
+    setProductStatusLoading(true);
+    try {
+      const updated = await productService.updateProductStatus(
+        productStatusTarget.id,
+        nextIsActive,
+      );
+      setAllProducts((prev) =>
+        prev.map((entry) => (entry.id === updated.id ? updated : entry)),
+      );
+      toast.success(t("status.updateSuccess"));
+    } catch {
+      toast.error(t("status.updateFailed"));
+    } finally {
+      setProductStatusLoading(false);
+      setProductStatusOpen(false);
+      setProductStatusTarget(null);
+    }
+  };
+
   const getDefaultImage = (product: Product) =>
     product.images?.[0] || product.image;
 
   const GridView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {filteredProducts.map((product) => (
-        <Card
-          key={product.id}
-          className="border-border/40 shadow-md hover:shadow-xl hover:border-border/70 transition-all duration-300 overflow-hidden group"
-        >
-          <CardContent className="p-0">
-            {/* Image Container */}
-            <div className="relative w-full overflow-hidden bg-muted h-56">
-              {getDefaultImage(product) ? (
-                <Image
-                  src={getDefaultImage(product) as string}
-                  alt={
-                    formatGemstoneType(product.gemstoneType) ||
-                    product.jewelryType ||
-                    t("product.image.alt")
-                  }
-                  fill
-                  className="object-cover group-hover:scale-110 transition-transform duration-300"
-                  unoptimized
-                />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center text-3xl opacity-20">
-                  💎
+      {filteredProducts.map((product) => {
+        const isActive = product.isActive !== false;
+        return (
+          <Card
+            key={product.id}
+            className={cn(
+              "border-border/40 shadow-md hover:shadow-xl hover:border-border/70 transition-all duration-300 overflow-hidden group",
+              !isActive && "opacity-70 grayscale",
+            )}
+          >
+            <CardContent className="p-0">
+              {/* Image Container */}
+              <div className="relative w-full overflow-hidden bg-muted h-56">
+                {getDefaultImage(product) ? (
+                  <Image
+                    src={getDefaultImage(product) as string}
+                    alt={
+                      formatGemstoneType(product.gemstoneType) ||
+                      product.jewelryType ||
+                      t("product.image.alt")
+                    }
+                    fill
+                    className="object-cover group-hover:scale-110 transition-transform duration-300"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-3xl opacity-20">
+                    💎
+                  </div>
+                )}
+
+                {/* Status Badge */}
+                <div className="absolute top-3 left-3">
+                  <StatusBadge isActive={isActive} />
                 </div>
-              )}
-
-              {/* Status Badge */}
-              <div className="absolute top-3 right-3">
-                <Badge
-                  className={`text-[11px] font-semibold px-2.5 py-1 ${statusBadgeClass(
-                    product.certificateStatus,
-                  )}`}
-                >
-                  {formatStatus(product.certificateStatus)}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Card Content */}
-            <div className="p-4 space-y-3.5">
-              {/* Product Name & Description */}
-              <div className="space-y-1.5">
-                <h3 className="font-semibold text-foreground text-base leading-snug line-clamp-1">
-                  {formatGemstoneType(product.gemstoneType) ||
-                    t("product.label.gemstone")}
-                </h3>
-                <p className="text-xs text-muted-foreground line-clamp-2">
-                  {product.description || t("product.description.empty")}
-                </p>
+                <div className="absolute top-3 right-3">
+                  <Badge
+                    className={`text-[11px] font-semibold px-2.5 py-1 ${statusBadgeClass(
+                      product.certificateStatus,
+                    )}`}
+                  >
+                    {formatStatus(product.certificateStatus)}
+                  </Badge>
+                </div>
               </div>
 
-              {/* Price Section */}
-              <div className="flex items-end justify-between pt-1.5 border-t border-border/30">
-                <div>
-                  <p className="text-xs text-muted-foreground font-medium mb-1">
-                    {t("product.label.sellingPrice")}
+              {/* Card Content */}
+              <div className="p-4 space-y-3.5">
+                {/* Product Name & Description */}
+                <div className="space-y-1.5">
+                  <h3 className="font-semibold text-foreground text-base leading-snug line-clamp-1">
+                    {formatGemstoneType(product.gemstoneType) ||
+                      t("product.label.gemstone")}
+                  </h3>
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {product.description || t("product.description.empty")}
                   </p>
-                  <p className="text-lg font-bold bg-linear-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                    {formatMoney(product.sellingPrice)}
-                  </p>
-                  {(canViewBuyingPrice || product.buyingPrice) && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t("product.buyLabel")} {formatMoney(product.buyingPrice)}
+                </div>
+
+                {/* Price Section */}
+                <div className="flex items-end justify-between pt-1.5 border-t border-border/30">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium mb-1">
+                      {t("product.label.sellingPrice")}
                     </p>
+                    <p className="text-lg font-bold bg-linear-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                      {formatMoney(product.sellingPrice)}
+                    </p>
+                    {(canViewBuyingPrice || product.buyingPrice) && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t("product.buyLabel")}{" "}
+                        {formatMoney(product.buyingPrice)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Specs Badges */}
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="secondary" className="text-xs">
+                    {formatJewelryType(product.jewelryType) ||
+                      t("product.label.jewelry")}
+                  </Badge>
+                  {product.colorType && (
+                    <Badge variant="secondary" className="text-xs">
+                      {product.colorType}
+                    </Badge>
                   )}
                 </div>
-              </div>
 
-              {/* Specs Badges */}
-              <div className="flex flex-wrap gap-1.5">
-                <Badge variant="secondary" className="text-xs">
-                  {formatJewelryType(product.jewelryType) ||
-                    t("product.label.jewelry")}
-                </Badge>
-                {product.colorType && (
-                  <Badge variant="secondary" className="text-xs">
-                    {product.colorType}
-                  </Badge>
-                )}
-              </div>
-
-              {/* Details Grid */}
-              <div className="text-xs text-muted-foreground space-y-1.5 py-2.5 border-y border-border/30">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">
-                    {t("product.label.dimension")}:
-                  </span>
-                  <span className="text-right max-w-[60%]">
-                    {formatDimensionSummary(product)}
-                  </span>
+                {/* Details Grid */}
+                <div className="text-xs text-muted-foreground space-y-1.5 py-2.5 border-y border-border/30">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">
+                      {t("product.label.dimension")}:
+                    </span>
+                    <span className="text-right max-w-[60%]">
+                      {formatDimensionSummary(product)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">
+                      {t("product.label.certificateId")}:
+                    </span>
+                    <span className="text-right max-w-[60%]">
+                      {product.certificateId || "-"}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">
-                    {t("product.label.certificateId")}:
-                  </span>
-                  <span className="text-right max-w-[60%]">
-                    {product.certificateId || "-"}
-                  </span>
-                </div>
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between gap-1.5 pt-1.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="flex-1 h-9 text-xs"
-                >
-                  <Link
-                    href={`/product/${product.id}`}
-                    aria-label={t("product.action.view")}
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between gap-1.5 pt-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    asChild
+                    className="flex-1 h-9 text-xs"
                   >
-                    <Eye size={14} className="mr-1.5" />
-                    {t("product.action.view")}
-                  </Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title={t("product.action.edit")}
-                  onClick={() => handleEditProduct(product)}
-                  className="h-9 w-9 p-0"
-                >
-                  <Edit2 size={14} className="text-blue-600" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title={t("product.action.delete")}
-                  onClick={() => handleDeleteProduct(product.id)}
-                  className="h-9 w-9 p-0"
-                >
-                  <Trash2 size={14} className="text-red-600" />
-                </Button>
+                    <Link
+                      href={`/product/${product.id}`}
+                      aria-label={t("product.action.view")}
+                    >
+                      <Eye size={14} className="mr-1.5" />
+                      {t("product.action.view")}
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title={t("product.action.edit")}
+                    onClick={() => handleEditProduct(product)}
+                    disabled={!isActive}
+                    className="h-9 w-9 p-0"
+                  >
+                    <Edit2 size={14} className="text-blue-600" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title={t("product.action.delete")}
+                    onClick={() => handleDeleteProduct(product.id)}
+                    disabled={!isActive}
+                    className="h-9 w-9 p-0"
+                  >
+                    <Trash2 size={14} className="text-red-600" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 px-2 text-xs"
+                    onClick={() => openProductStatusDialog(product)}
+                  >
+                    {isActive ? t("status.deactivate") : t("status.activate")}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 
@@ -674,6 +762,9 @@ export default function ProductPage() {
               {t("product.label.certificateStatus")}
             </TableHead>
             <TableHead className="font-semibold text-foreground">
+              {t("status.label")}
+            </TableHead>
+            <TableHead className="font-semibold text-foreground">
               {t("product.label.certificateId")}
             </TableHead>
             <TableHead className="font-semibold text-foreground">
@@ -688,123 +779,140 @@ export default function ProductPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredProducts.map((product, index) => (
-            <TableRow
-              key={product.id}
-              className={`border-border/40 hover:bg-muted/30 transition-colors ${
-                index % 2 === 0 ? "bg-background" : "bg-muted/10"
-              }`}
-            >
-              <TableCell className="py-4">
-                {getDefaultImage(product) ? (
-                  <div className="relative w-10 h-10 rounded-md overflow-hidden border border-border/40">
-                    <Image
-                      src={getDefaultImage(product) as string}
-                      alt={
-                        formatGemstoneType(product.gemstoneType) ||
-                        product.jewelryType ||
-                        t("product.image.alt")
-                      }
-                      fill
-                      className="object-cover"
-                      unoptimized
+          {filteredProducts.map((product, index) => {
+            const isActive = product.isActive !== false;
+            return (
+              <TableRow
+                key={product.id}
+                className={cn(
+                  "border-border/40 hover:bg-muted/30 transition-colors",
+                  index % 2 === 0 ? "bg-background" : "bg-muted/10",
+                  !isActive && "opacity-70 grayscale",
+                )}
+              >
+                <TableCell className="py-4">
+                  {getDefaultImage(product) ? (
+                    <div className="relative w-10 h-10 rounded-md overflow-hidden border border-border/40">
+                      <Image
+                        src={getDefaultImage(product) as string}
+                        alt={
+                          formatGemstoneType(product.gemstoneType) ||
+                          product.jewelryType ||
+                          t("product.image.alt")
+                        }
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center text-xs opacity-30">
+                      💎
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell className="font-medium text-foreground">
+                  {formatGemstoneType(product.gemstoneType) || "—"}
+                </TableCell>
+                <TableCell className="text-sm text-foreground">
+                  {formatJewelryType(product.jewelryType) || "—"}
+                </TableCell>
+                <TableCell className="text-sm text-foreground">
+                  {product.colorType || "—"}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  <div
+                    className="max-w-xs truncate"
+                    title={formatDimensionSummary(product)}
+                  >
+                    {formatDimensionSummary(product)}
+                  </div>
+                </TableCell>
+                {showBuyingPriceColumn && (
+                  <TableCell className="text-sm text-foreground font-medium">
+                    {product.buyingPrice
+                      ? formatMoney(product.buyingPrice)
+                      : "—"}
+                  </TableCell>
+                )}
+                <TableCell className="text-sm font-bold from-emerald-600/10 to-teal-600/10 text-emerald-700 ">
+                  {formatMoney(product.sellingPrice)}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    className={`text-xs font-semibold ${statusBadgeClass(
+                      product.certificateStatus,
+                    )}`}
+                  >
+                    {formatStatus(product.certificateStatus)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <StatusBadge isActive={isActive} />
+                </TableCell>
+                <TableCell className="text-xs text-foreground">
+                  {product.certificateId || "—"}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {product.certificateAuthority || "—"}
+                </TableCell>
+                <TableCell>
+                  {product.certificateLink ? (
+                    <a
+                      href={product.certificateLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                    >
+                      {t("common.view")} →
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-center">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="h-8 w-8 p-0"
+                      title={t("product.action.viewDetails")}
+                    >
+                      <Link href={`/product/${product.id}`}>
+                        <Eye size={14} className="text-amber-600" />
+                      </Link>
+                    </Button>
+                    <ActionMenu
+                      items={[
+                        {
+                          label: t("product.action.view"),
+                          onClick: () => router.push(`/product/${product.id}`),
+                        },
+                        {
+                          label: t("product.action.edit"),
+                          onClick: () => handleEditProduct(product),
+                          disabled: !isActive,
+                        },
+                        {
+                          label: isActive
+                            ? t("status.deactivate")
+                            : t("status.activate"),
+                          onClick: () => openProductStatusDialog(product),
+                        },
+                        {
+                          label: t("product.action.delete"),
+                          onClick: () => handleDeleteProduct(product.id),
+                          disabled: !isActive,
+                          destructive: true,
+                        },
+                      ]}
                     />
                   </div>
-                ) : (
-                  <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center text-xs opacity-30">
-                    💎
-                  </div>
-                )}
-              </TableCell>
-              <TableCell className="font-medium text-foreground">
-                {formatGemstoneType(product.gemstoneType) || "—"}
-              </TableCell>
-              <TableCell className="text-sm text-foreground">
-                {formatJewelryType(product.jewelryType) || "—"}
-              </TableCell>
-              <TableCell className="text-sm text-foreground">
-                {product.colorType || "—"}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                <div
-                  className="max-w-xs truncate"
-                  title={formatDimensionSummary(product)}
-                >
-                  {formatDimensionSummary(product)}
-                </div>
-              </TableCell>
-              {showBuyingPriceColumn && (
-                <TableCell className="text-sm text-foreground font-medium">
-                  {product.buyingPrice ? formatMoney(product.buyingPrice) : "—"}
                 </TableCell>
-              )}
-              <TableCell className="text-sm font-bold from-emerald-600/10 to-teal-600/10 text-emerald-700 ">
-                {formatMoney(product.sellingPrice)}
-              </TableCell>
-              <TableCell>
-                <Badge
-                  className={`text-xs font-semibold ${statusBadgeClass(
-                    product.certificateStatus,
-                  )}`}
-                >
-                  {formatStatus(product.certificateStatus)}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-xs text-foreground">
-                {product.certificateId || "—"}
-              </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {product.certificateAuthority || "—"}
-              </TableCell>
-              <TableCell>
-                {product.certificateLink ? (
-                  <a
-                    href={product.certificateLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                  >
-                    {t("common.view")} →
-                  </a>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </TableCell>
-              <TableCell className="text-center">
-                <div className="flex items-center justify-center gap-1.5">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    asChild
-                    className="h-8 w-8 p-0"
-                    title={t("product.action.viewDetails")}
-                  >
-                    <Link href={`/product/${product.id}`}>
-                      <Eye size={14} className="text-amber-600" />
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title={t("product.action.edit")}
-                    onClick={() => handleEditProduct(product)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Edit2 size={14} className="text-blue-600" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title={t("product.action.delete")}
-                    onClick={() => handleDeleteProduct(product.id)}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Trash2 size={14} className="text-red-600" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </div>
@@ -1012,7 +1120,7 @@ export default function ProductPage() {
             {/* Filter Controls */}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               {/* Search Input */}
-              <div className="relative flex-1 min-w-[240px] lg:max-w-md">
+              <div className="relative flex-1 min-w-60 lg:max-w-md">
                 <Search
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
                   size={16}
@@ -1027,14 +1135,14 @@ export default function ProductPage() {
 
               <div className="flex flex-wrap items-center gap-2">
                 {/* Jewelry Type Filter */}
-                <div className="min-w-[160px] flex-1 sm:flex-none">
+                <div className="min-w-40 flex-1 sm:flex-none">
                   <Select
                     value={selectedJewelryType || "all"}
                     onValueChange={(value) =>
                       setSelectedJewelryType(value === "all" ? "" : value)
                     }
                   >
-                    <SelectTrigger className="min-w-[160px]">
+                    <SelectTrigger className="min-w-40">
                       <SelectValue placeholder={t("product.filter.jewelry")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -1051,14 +1159,14 @@ export default function ProductPage() {
                 </div>
 
                 {/* Gemstone Type Filter */}
-                <div className="min-w-[160px] flex-1 sm:flex-none">
+                <div className="min-w-40 flex-1 sm:flex-none">
                   <Select
                     value={selectedGemstoneType || "all"}
                     onValueChange={(value) =>
                       setSelectedGemstoneType(value === "all" ? "" : value)
                     }
                   >
-                    <SelectTrigger className="min-w-[160px]">
+                    <SelectTrigger className="min-w-40">
                       <SelectValue placeholder={t("product.filter.gemstone")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -1075,14 +1183,14 @@ export default function ProductPage() {
                 </div>
 
                 {/* Price Range Filter */}
-                <div className="min-w-[160px] flex-1 sm:flex-none">
+                <div className="min-w-40 flex-1 sm:flex-none">
                   <Select
                     value={selectedPriceRange || "all"}
                     onValueChange={(value) =>
                       setSelectedPriceRange(value === "all" ? "" : value)
                     }
                   >
-                    <SelectTrigger className="min-w-[160px]">
+                    <SelectTrigger className="min-w-40">
                       <SelectValue placeholder={t("product.filter.price")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -1740,6 +1848,39 @@ export default function ProductPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={productStatusOpen} onOpenChange={setProductStatusOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("status.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("status.confirmProduct", {
+                action:
+                  productStatusTarget?.isActive === false
+                    ? t("status.activate")
+                    : t("status.deactivate"),
+                name:
+                  formatGemstoneType(productStatusTarget?.gemstoneType) ||
+                  productStatusTarget?.jewelryType ||
+                  t("product.label.gemstone"),
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmProductStatus}
+              disabled={productStatusLoading}
+            >
+              {productStatusLoading
+                ? t("common.loading")
+                : productStatusTarget?.isActive === false
+                  ? t("status.activate")
+                  : t("status.deactivate")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

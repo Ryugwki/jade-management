@@ -29,3 +29,11 @@ export async function updateProduct(
 export async function deleteProduct(id: string): Promise<void> {
   await api.delete(`/products/${id}`);
 }
+
+export async function updateProductStatus(
+  id: string,
+  isActive: boolean,
+): Promise<Product> {
+  const response = await api.patch(`/products/${id}/status`, { isActive });
+  return response.data.product as Product;
+}

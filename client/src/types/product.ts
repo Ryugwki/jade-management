@@ -22,6 +22,8 @@ export interface Product {
   gemstoneType: GemstoneType;
   jewelryType: JewelryType | "";
   colorType: string;
+  isActive?: boolean;
+  updatedBy?: string;
   dimensions: {
     innerDiameterMm?: number;
     widthMm?: number;

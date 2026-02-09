@@ -3,10 +3,9 @@
 import React, {
   createContext,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
+  useCallback,
 } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -284,6 +283,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "permission.users.fallbackName": "Ng\u01b0\u1eddi d\u00f9ng",
     "permission.users.noEmail": "Ch\u01b0a c\u00f3 email",
     "permission.users.selectRole": "Ch\u1ecdn vai tr\u00f2",
+    "permission.users.changeRole": "Thay \u0111\u1ed5i vai tr\u00f2",
     "permission.users.editPermissions": "S\u1eeda quy\u1ec1n",
     "permission.users.delete": "X\u00f3a",
     "permission.users.loadFailed":
@@ -292,11 +292,28 @@ const translations: Record<LanguageCode, TranslationMap> = {
       "Email v\u00e0 m\u1eadt kh\u1ea9u l\u00e0 b\u1eaft bu\u1ed9c.",
     "permission.users.createFailed":
       "Kh\u00f4ng th\u1ec3 t\u1ea1o ng\u01b0\u1eddi d\u00f9ng.",
+    "permission.users.roleUpdated":
+      "\u0110\u00e3 c\u1eadp nh\u1eadt vai tr\u00f2.",
+    "permission.users.roleFailed":
+      "Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt vai tr\u00f2.",
+    "permission.users.permissionsUpdated":
+      "\u0110\u00e3 c\u1eadp nh\u1eadt quy\u1ec1n.",
+    "permission.users.permissionsFailed":
+      "Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt quy\u1ec1n.",
     "permission.users.deleteFailed":
       "Kh\u00f4ng th\u1ec3 x\u00f3a ng\u01b0\u1eddi d\u00f9ng.",
+    "permission.users.deleteSuccess":
+      "\u0110\u00e3 x\u00f3a ng\u01b0\u1eddi d\u00f9ng.",
     "permission.users.cannotDeleteSelf":
       "Kh\u00f4ng th\u1ec3 x\u00f3a ch\u00ednh t\u00e0i kho\u1ea3n c\u1ee7a b\u1ea1n.",
+    "permission.users.deleteTitle": "X\u00f3a ng\u01b0\u1eddi d\u00f9ng?",
     "permission.users.deleteConfirm": "X\u00f3a {name} ?",
+    "permission.users.deleteDescription":
+      "H\u00e0nh \u0111\u1ed9ng n\u00e0y kh\u00f4ng th\u1ec3 ho\u00e0n t\u00e1c. Ng\u01b0\u1eddi d\u00f9ng s\u1ebd b\u1ecb x\u00f3a ho\u00e0n to\u00e0n kh\u1ecfi h\u1ec7 th\u1ed1ng.",
+    "permission.users.deactivateHelp":
+      "Ng\u01b0\u1eddi d\u00f9ng b\u1ecb v\u00f4 hi\u1ec7u h\u00f3a s\u1ebd m\u1ea5t quy\u1ec1n truy c\u1eadp v\u00e0 kh\u00f4ng th\u1ec3 thao t\u00e1c d\u1eef li\u1ec7u cho \u0111\u1ebfn khi \u0111\u01b0\u1ee3c k\u00edch ho\u1ea1t l\u1ea1i.",
+    "permission.users.activateHelp":
+      "Ng\u01b0\u1eddi d\u00f9ng s\u1ebd c\u00f3 th\u1ec3 truy c\u1eadp l\u1ea1i ngay sau khi k\u00edch ho\u1ea1t.",
     "permission.users.thisUser": "ng\u01b0\u1eddi d\u00f9ng n\u00e0y",
     "permission.users.emailPlaceholder": "person@example.com",
     "permission.users.passwordPlaceholder":
@@ -313,6 +330,20 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "permission.matrix.caption":
       "D\u00f9ng danh s\u00e1ch \u0111\u1ec3 ch\u1ecdn m\u1ee9c quy\u1ec1n. C\u1eadp nh\u1eadt \u00e1p d\u1ee5ng ngay cho s\u1ea3n ph\u1ea9m v\u00e0 ki\u1ec3m \u0111\u1ecbnh.",
     "permission.matrix.updated": "\u0110\u00e3 c\u1eadp nh\u1eadt",
+    "status.active": "\u0110ang ho\u1ea1t \u0111\u1ed9ng",
+    "status.inactive": "Kh\u00f4ng ho\u1ea1t \u0111\u1ed9ng",
+    "status.activate": "K\u00edch ho\u1ea1t",
+    "status.deactivate": "V\u00f4 hi\u1ec7u h\u00f3a",
+    "status.updateSuccess":
+      "C\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i th\u00e0nh c\u00f4ng.",
+    "status.updateFailed":
+      "Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i.",
+    "status.confirmTitle": "X\u00e1c nh\u1eadn thay \u0111\u1ed5i",
+    "status.confirmUser":
+      "B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n {action} ng\u01b0\u1eddi d\u00f9ng {name}?",
+    "status.confirmProduct":
+      "B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n {action} s\u1ea3n ph\u1ea9m {name}?",
+    "status.label": "Tr\u1ea1ng th\u00e1i",
 
     "permission.area.inventory": "S\u1ea3n ph\u1ea9m & t\u1ed3n kho",
     "permission.area.certificates": "Ki\u1ec3m \u0111\u1ecbnh",
@@ -494,6 +525,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.image.alt": "\u1ea2nh s\u1ea3n ph\u1ea9m",
     "product.image.altIndex": "\u1ea2nh s\u1ea3n ph\u1ea9m {index}",
     "product.image.primary": "\u1ea2nh ch\u00ednh",
+    "product.image.preview": "Xem ph\u00f3ng to",
     "product.image.remove": "X\u00f3a \u1ea3nh",
 
     "product.header.title": "Qu\u1ea3n l\u00fd s\u1ea3n ph\u1ea9m",
@@ -519,6 +551,10 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.action.edit": "Ch\u1ec9nh s\u1eeda",
     "product.action.delete": "X\u00f3a",
     "product.action.viewDetails": "Xem chi ti\u1ebft",
+    "product.status.deactivateHelp":
+      "S\u1ea3n ph\u1ea9m s\u1ebd \u1ea9n kh\u1ecfi c\u1eeda h\u00e0ng v\u00e0 kh\u00f4ng th\u1ec3 b\u00e1n cho \u0111\u1ebfn khi k\u00edch ho\u1ea1t l\u1ea1i.",
+    "product.status.activateHelp":
+      "S\u1ea3n ph\u1ea9m s\u1ebd hi\u1ec3n th\u1ecb tr\u1edf l\u1ea1i v\u00e0 c\u00f3 th\u1ec3 \u0111\u01b0\u1ee3c mua.",
     "product.feedback.created": "\u0110\u00e3 th\u00eam s\u1ea3n ph\u1ea9m.",
     "product.feedback.updated":
       "\u0110\u00e3 c\u1eadp nh\u1eadt s\u1ea3n ph\u1ea9m.",
@@ -819,14 +855,27 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "permission.users.fallbackName": "User",
     "permission.users.noEmail": "No email",
     "permission.users.selectRole": "Select role",
+    "permission.users.changeRole": "Change role",
     "permission.users.editPermissions": "Edit permissions",
     "permission.users.delete": "Delete",
     "permission.users.loadFailed": "Failed to load users.",
     "permission.users.required": "Email and password are required.",
     "permission.users.createFailed": "Failed to create user.",
+    "permission.users.roleUpdated": "Role updated successfully.",
+    "permission.users.roleFailed": "Failed to update role.",
+    "permission.users.permissionsUpdated": "Permissions updated successfully.",
+    "permission.users.permissionsFailed": "Failed to update permissions.",
     "permission.users.deleteFailed": "Failed to delete user.",
+    "permission.users.deleteSuccess": "User deleted successfully.",
     "permission.users.cannotDeleteSelf": "You cannot delete your own account.",
+    "permission.users.deleteTitle": "Delete user?",
     "permission.users.deleteConfirm": "Delete {name}?",
+    "permission.users.deleteDescription":
+      "This action is permanent. The user will be removed from the system and cannot be restored.",
+    "permission.users.deactivateHelp":
+      "Deactivated users lose access and cannot manage data until reactivated.",
+    "permission.users.activateHelp":
+      "The user will regain access immediately after activation.",
     "permission.users.thisUser": "this user",
     "permission.users.emailPlaceholder": "person@example.com",
     "permission.users.passwordPlaceholder": "••••••••",
@@ -841,6 +890,17 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "permission.matrix.caption":
       "Use the dropdowns to select permission levels. Updates apply immediately to the product and certificate flows.",
     "permission.matrix.updated": "Updated",
+    "status.active": "Active",
+    "status.inactive": "Inactive",
+    "status.activate": "Activate",
+    "status.deactivate": "Deactivate",
+    "status.updateSuccess": "Status updated successfully.",
+    "status.updateFailed": "Failed to update status.",
+    "status.confirmTitle": "Confirm change",
+    "status.confirmUser": "Are you sure you want to {action} user {name}?",
+    "status.confirmProduct":
+      "Are you sure you want to {action} product {name}?",
+    "status.label": "Status",
 
     "permission.area.inventory": "Inventory & products",
     "permission.area.certificates": "Certificates",
@@ -990,6 +1050,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.image.alt": "Product image",
     "product.image.altIndex": "Product image {index}",
     "product.image.primary": "Primary",
+    "product.image.preview": "Preview image",
     "product.image.remove": "Remove image",
 
     "product.header.title": "Product management",
@@ -1012,6 +1073,10 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.action.edit": "Edit",
     "product.action.delete": "Delete",
     "product.action.viewDetails": "View details",
+    "product.status.deactivateHelp":
+      "This product will be hidden from the store and cannot be purchased until reactivated.",
+    "product.status.activateHelp":
+      "This product will be visible again and can be purchased.",
     "product.feedback.created": "Product created.",
     "product.feedback.updated": "Product updated.",
     "product.feedback.deleted": "Product deleted.",
@@ -1104,46 +1169,55 @@ const detectBrowserLanguage = (): LanguageCode => {
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const hasStoredPreference = useRef(false);
-  const [language, setLanguageState] = useState<LanguageCode>("en");
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const [hasStoredPreference, setHasStoredPreference] = useState(() => {
+    if (typeof window === "undefined") return false;
     const stored = window.localStorage.getItem("gm_language");
-    if (isLanguageCode(stored)) {
-      hasStoredPreference.current = true;
-      setLanguageState(stored);
-      return;
-    }
-    setLanguageState(detectBrowserLanguage());
-  }, []);
+    return isLanguageCode(stored ?? undefined);
+  });
+  const [language, setLanguageState] = useState<LanguageCode>(
+    (): LanguageCode => {
+      if (typeof window === "undefined") return "en";
+      const stored = window.localStorage.getItem("gm_language");
+      if (isLanguageCode(stored ?? undefined)) {
+        return stored as LanguageCode;
+      }
+      return detectBrowserLanguage();
+    },
+  );
 
-  useEffect(() => {
-    if (!user?.language || hasStoredPreference.current) return;
-    if (isLanguageCode(user.language)) {
-      setLanguageState(user.language);
+  const resolvedLanguage = useMemo(() => {
+    if (hasStoredPreference) return language;
+    if (user?.language && isLanguageCode(user.language)) {
+      return user.language;
     }
-  }, [user?.language]);
+    return language;
+  }, [language, user?.language, hasStoredPreference]);
 
-  const setLanguage = (lang: LanguageCode) => {
+  const setLanguage = useCallback((lang: LanguageCode) => {
     setLanguageState(lang);
     if (typeof window !== "undefined") {
       window.localStorage.setItem("gm_language", lang);
-      hasStoredPreference.current = true;
+      setHasStoredPreference(true);
     }
-  };
+  }, []);
 
-  const t = (key: string, params?: Record<string, string | number>) => {
-    const template =
-      translations[language]?.[key] || translations.en[key] || key;
-    if (!params) return template;
-    return Object.keys(params).reduce((result, paramKey) => {
-      const value = String(params[paramKey]);
-      return result.replaceAll(`{${paramKey}}`, value);
-    }, template);
-  };
+  const t = useCallback(
+    (key: string, params?: Record<string, string | number>) => {
+      const template =
+        translations[resolvedLanguage]?.[key] || translations.en[key] || key;
+      if (!params) return template;
+      return Object.keys(params).reduce((result, paramKey) => {
+        const value = String(params[paramKey]);
+        return result.replaceAll(`{${paramKey}}`, value);
+      }, template);
+    },
+    [resolvedLanguage],
+  );
 
-  const value = useMemo(() => ({ language, setLanguage, t }), [language]);
+  const value = useMemo(
+    () => ({ language: resolvedLanguage, setLanguage, t }),
+    [resolvedLanguage, setLanguage, t],
+  );
 
   return (
     <LanguageContext.Provider value={value}>

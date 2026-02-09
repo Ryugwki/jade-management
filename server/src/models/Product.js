@@ -33,6 +33,8 @@ const productSchema = new mongoose.Schema(
       default: "pending",
     },
     certificateLink: { type: String, default: "" },
+    isActive: { type: Boolean, default: true },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },
 );
