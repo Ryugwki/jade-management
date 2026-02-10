@@ -22,6 +22,10 @@ const userSchema = new mongoose.Schema(
     avatarUrl: { type: String, default: "" },
     language: { type: String, default: "vi" },
     timezone: { type: String, default: "Asia/Ho_Chi_Minh" },
+    // Guest token fields
+    isGuest: { type: Boolean, default: false },
+    guestToken: { type: String, unique: true, sparse: true }, // Unique token for guest users
+    lastActiveAt: { type: Date, default: Date.now },
   },
   { timestamps: true },
 );

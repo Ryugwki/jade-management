@@ -21,4 +21,6 @@ export interface User {
   avatarUrl?: string;
   language?: string;
   timezone?: string;
+  isGuest?: boolean;
+  guestToken?: string | null;
 }

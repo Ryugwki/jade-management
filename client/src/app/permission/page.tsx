@@ -8,7 +8,6 @@ import {
   useState,
   type ElementType,
 } from "react";
-import { Playfair_Display, Space_Grotesk } from "next/font/google";
 import { useRouter } from "next/navigation";
 import {
   Crown,
@@ -16,7 +15,6 @@ import {
   Lock,
   ShieldCheck,
   FileCheck2,
-  Sparkles,
   KeyRound,
   Activity,
   AlertTriangle,
@@ -35,6 +33,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   Select,
   SelectContent,
@@ -75,12 +74,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ActionMenu } from "@/components/ActionMenu";
-
-const display = Playfair_Display({ subsets: ["latin"], weight: ["600"] });
-const body = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-});
 
 type UserRole = "SUPER_ADMIN" | "ADMIN" | "GUEST";
 type UserPermissionLevel = "none" | "limited" | "read" | "manage" | "full";
@@ -1065,42 +1058,27 @@ export default function PermissionPage() {
   }
 
   return (
-    <div
-      className={`${body.className} mx-auto w-full max-w-6xl space-y-8 pb-12`}
-    >
-      <section className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center">
-          <div className="space-y-3">
-            <Badge className="w-fit bg-primary/10 text-primary border border-primary/20">
-              <Sparkles size={14} /> {t("permission.header.badge")}
-            </Badge>
-            <div>
-              <h1 className={`${display.className} text-3xl md:text-4xl`}>
-                {t("permission.header.title")}
-              </h1>
-              <p className="text-sm text-muted-foreground max-w-xl">
-                {t("permission.header.subtitle")}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline">{t("permission.header.policy")}</Badge>
-              <Badge variant="outline">{t("permission.header.review")}</Badge>
-              <Badge variant="outline">{t("permission.header.audit")}</Badge>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 md:ml-auto">
-            <Button
-              className="bg-primary text-primary-foreground hover:bg-(--jade-600)"
-              onClick={handleReviewChanges}
-            >
+    <div className="mx-auto w-full max-w-6xl space-y-8 pb-12">
+      <PageHeader
+        eyebrow={t("permission.header.badge")}
+        title={t("permission.header.title")}
+        subtitle={t("permission.header.subtitle")}
+        actions={
+          <>
+            <Button onClick={handleReviewChanges}>
               {t("permission.action.review")}
             </Button>
             <Button variant="outline" onClick={handleExportPolicy}>
               {t("permission.action.export")}
             </Button>
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
+      <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        <Badge variant="outline">{t("permission.header.policy")}</Badge>
+        <Badge variant="outline">{t("permission.header.review")}</Badge>
+        <Badge variant="outline">{t("permission.header.audit")}</Badge>
+      </div>
 
       <section className="w-full space-y-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -1970,7 +1948,7 @@ export default function PermissionPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("status.confirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
                   {t("status.confirmUser", {
@@ -2014,7 +1992,7 @@ export default function PermissionPage() {
             <AlertDialogTitle>
               {t("permission.users.deleteTitle")}
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
                   {t("permission.users.deleteConfirm", {

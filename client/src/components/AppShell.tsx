@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
@@ -11,21 +11,35 @@ import { GlobalLoadingOverlay } from "@/components/GlobalLoadingOverlay";
 import { FeedbackModal } from "@/components/FeedbackModal";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
   const { user, isReady } = useAuth();
   const { t } = useTranslation();
   const { startLoading, stopLoading } = useLoading();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const searchParamsStr = searchParams?.toString();
   const isLogin = pathname === "/login";
+  const isPublicGuestRoute = pathname.startsWith("/product");
   const hasNavigated = useRef(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!isReady) return;
-    if (!user && !isLogin) {
+
+    // Allow guest users to access the app
+    const isGuestUser = user?.isGuest === true;
+
+    // Only redirect to login if no user and not a public guest route
+    if (!user && !isLogin && !isPublicGuestRoute) {
       router.replace("/login");
     }
-    if (user && isLogin) {
+
+    // Redirect authenticated (non-guest) users away from login page
+    if (user && !isGuestUser && isLogin) {
       router.replace("/");
     }
   }, [user, isReady, isLogin, router]);
@@ -39,12 +53,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     startLoading();
     const timer = window.setTimeout(() => stopLoading(), 500);
     return () => window.clearTimeout(timer);
-  }, [pathname, searchParams?.toString(), isLogin, startLoading, stopLoading]);
+  }, [pathname, searchParamsStr, isLogin, startLoading, stopLoading]);
 
-  if (!isReady) {
+  const shouldHoldForGuest = isPublicGuestRoute && !user;
+
+  // Prevent hydration mismatch by showing loading state until mounted
+  if (!mounted || !isReady || shouldHoldForGuest) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <div className="text-sm text-muted-foreground">
+      <div
+        className="min-h-screen flex items-center justify-center bg-background text-foreground"
+        suppressHydrationWarning
+      >
+        <div className="text-sm text-muted-foreground" suppressHydrationWarning>
           {t("common.loading")}
         </div>
       </div>

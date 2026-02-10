@@ -1,13 +1,16 @@
 import React from "react";
 import "../styles/globals.css";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { AuthProvider } from "../contexts/AuthContext";
 import { LanguageProvider } from "../contexts/LanguageContext";
 import { LoadingProvider } from "../contexts/LoadingContext";
 import { FeedbackProvider } from "../contexts/FeedbackContext";
 import { AppShell } from "../components/AppShell";
 
-const inter = Inter({ subsets: ["latin"] });
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-app-sans",
+});
 
 export const metadata = {
   title: "Jade Management",
@@ -21,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${jakarta.variable} font-sans`}>
         <AuthProvider>
           <LanguageProvider>
             <LoadingProvider>

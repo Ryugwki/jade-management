@@ -32,3 +32,44 @@ export async function getMe(): Promise<User> {
   const response = await axiosInstance.get("/auth/me");
   return withPassword(response.data.user as Omit<User, "password">);
 }
+
+/**
+ * Initialize a guest token for unauthenticated users
+ * This creates a unique guest user tied to the current device/browser
+ */
+export async function initGuestToken(): Promise<{
+  user: User;
+  guestToken: string;
+  isNewGuest: boolean;
+}> {
+  const response = await axiosInstance.post("/auth/guest-token");
+  return {
+    user: withPassword(response.data.user as Omit<User, "password">),
+    guestToken: response.data.guestToken,
+    isNewGuest: response.data.isNewGuest,
+  };
+}
+
+/**
+ * Get the guest token from localStorage
+ */
+export function getStoredGuestToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("guest_token");
+}
+
+/**
+ * Store the guest token in localStorage
+ */
+export function storeGuestToken(token: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("guest_token", token);
+}
+
+/**
+ * Remove the guest token from localStorage
+ */
+export function clearStoredGuestToken(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("guest_token");
+}

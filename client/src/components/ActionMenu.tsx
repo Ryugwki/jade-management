@@ -28,6 +28,10 @@ export function ActionMenu({
   className,
   align = "end",
 }: ActionMenuProps) {
+  if (!items.length) {
+    return null;
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

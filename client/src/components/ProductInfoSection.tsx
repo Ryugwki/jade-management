@@ -7,6 +7,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 interface InfoRow {
   label: string;
@@ -161,6 +162,7 @@ export function CertificateStatusBadge({
   status,
   large = false,
 }: CertificateStatusBadgeProps) {
+  const { t } = useTranslation();
   const variants = {
     verified: "bg-emerald-100 text-emerald-700 border-emerald-200",
     pending: "bg-amber-100 text-amber-700 border-amber-200",
@@ -168,9 +170,9 @@ export function CertificateStatusBadge({
   };
 
   const labels = {
-    verified: "Verified",
-    pending: "Pending Verification",
-    unverified: "Unverified",
+    verified: t("certificate.verified"),
+    pending: t("certificate.pending"),
+    unverified: t("certificate.unverified"),
   };
 
   return (

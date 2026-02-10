@@ -37,6 +37,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "common.phone": "S\u1ed1 \u0111i\u1ec7n tho\u1ea1i",
     "common.address": "\u0110\u1ecba ch\u1ec9",
     "common.password": "M\u1eadt kh\u1ea9u",
+    "form.required": "Tr\u01b0\u1eddng n\u00e0y b\u1eaft bu\u1ed9c.",
     "common.currentPassword": "M\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i",
     "common.newPassword": "M\u1eadt kh\u1ea9u m\u1edbi",
     "common.confirmPassword": "X\u00e1c nh\u1eadn m\u1eadt kh\u1ea9u",
@@ -527,6 +528,12 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.image.primary": "\u1ea2nh ch\u00ednh",
     "product.image.preview": "Xem ph\u00f3ng to",
     "product.image.remove": "X\u00f3a \u1ea3nh",
+    "product.image.addUrl": "Th\u00eam URL h\u00ecnh \u1ea3nh",
+    "product.image.urlPlaceholder": "D\u00e1n URL h\u00ecnh \u1ea3nh",
+    "product.image.addAction": "Th\u00eam h\u00ecnh \u1ea3nh",
+    "product.image.makePrimary": "\u0110\u1eb7t l\u00e0m \u1ea3nh ch\u00ednh",
+    "product.image.uploaded": "\u0110\u00e3 t\u1ea3i l\u00ean",
+    "product.image.uploadFailed": "T\u1ea3i l\u1ed7i",
 
     "product.header.title": "Qu\u1ea3n l\u00fd s\u1ea3n ph\u1ea9m",
     "product.header.subtitle":
@@ -551,6 +558,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.action.edit": "Ch\u1ec9nh s\u1eeda",
     "product.action.delete": "X\u00f3a",
     "product.action.viewDetails": "Xem chi ti\u1ebft",
+    "product.action.backToProducts": "Quay l\u1ea1i danh s\u00e1ch",
     "product.status.deactivateHelp":
       "S\u1ea3n ph\u1ea9m s\u1ebd \u1ea9n kh\u1ecfi c\u1eeda h\u00e0ng v\u00e0 kh\u00f4ng th\u1ec3 b\u00e1n cho \u0111\u1ebfn khi k\u00edch ho\u1ea1t l\u1ea1i.",
     "product.status.activateHelp":
@@ -561,7 +569,8 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.feedback.deleted": "\u0110\u00e3 x\u00f3a s\u1ea3n ph\u1ea9m.",
     "product.view.grid": "D\u1ea1ng l\u01b0\u1edbi",
     "product.view.table": "D\u1ea1ng b\u1ea3ng",
-
+    "product.viewMode.grid": "D\u1ea1ng l\u01b0\u1edbi",
+    "product.viewMode.table": "D\u1ea1ng b\u1ea3ng",
     "product.label.gemstone": "Ch\u1ea5t",
     "product.label.jewelry": "Ki\u1ec3u trang s\u1ee9c",
     "product.label.color": "M\u00e0u",
@@ -651,6 +660,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "common.phone": "Phone",
     "common.address": "Address",
     "common.password": "Password",
+    "form.required": "This field is required.",
     "common.currentPassword": "Current password",
     "common.newPassword": "New password",
     "common.confirmPassword": "Confirm password",
@@ -1052,6 +1062,12 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.image.primary": "Primary",
     "product.image.preview": "Preview image",
     "product.image.remove": "Remove image",
+    "product.image.addUrl": "Add image URL",
+    "product.image.urlPlaceholder": "Paste image URL",
+    "product.image.addAction": "Add image",
+    "product.image.makePrimary": "Set primary",
+    "product.image.uploaded": "Uploaded",
+    "product.image.uploadFailed": "Upload failed",
 
     "product.header.title": "Product management",
     "product.header.subtitle": "Manage your gemstone products and details",
@@ -1073,6 +1089,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.action.edit": "Edit",
     "product.action.delete": "Delete",
     "product.action.viewDetails": "View details",
+    "product.action.backToProducts": "Back to Products",
     "product.status.deactivateHelp":
       "This product will be hidden from the store and cannot be purchased until reactivated.",
     "product.status.activateHelp":
@@ -1082,6 +1099,8 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.feedback.deleted": "Product deleted.",
     "product.view.grid": "Grid view",
     "product.view.table": "Table view",
+    "product.viewMode.grid": "Grid view",
+    "product.viewMode.table": "Table view",
 
     "product.label.gemstone": "Gemstone",
     "product.label.jewelry": "Jewelry type",

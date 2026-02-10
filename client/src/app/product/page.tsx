@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ActionMenu } from "@/components/ActionMenu";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { FilterBar } from "@/components/layout/FilterBar";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -36,7 +38,7 @@ import {
 import { Search, Grid3X3, List, Edit2, Trash2, Plus, Eye } from "lucide-react";
 import Link from "next/link";
 import { CertificateStatus, Product } from "@/types/product";
-import { useAuth } from "@/contexts/AuthContext";
+import { usePermission } from "@/hooks/usePermission";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useLoading } from "@/contexts/LoadingContext";
 import { useFeedback } from "@/contexts/FeedbackContext";
@@ -58,19 +60,11 @@ import { cn } from "@/lib/utils";
 
 export default function ProductPage() {
   const router = useRouter();
-  const { user } = useAuth();
   const { t, language } = useTranslation();
   const { startLoading, stopLoading } = useLoading();
   const { showFeedback } = useFeedback();
-  const pricingPermission = user?.permissions?.["Pricing & billing"];
-  const canViewBuyingPrice =
-    user?.role === "ADMIN" ||
-    user?.role === "SUPER_ADMIN" ||
-    pricingPermission === "read" ||
-    pricingPermission === "manage" ||
-    pricingPermission === "full";
-  const canManageProducts =
-    user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
+  const canViewBuyingPrice = usePermission("pricing", "read");
+  const canManageProducts = usePermission("product", "manage");
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedJewelryType, setSelectedJewelryType] = useState("");
@@ -536,12 +530,13 @@ export default function ProductPage() {
   };
 
   const openProductStatusDialog = (target: Product) => {
+    if (!canManageProducts) return;
     setProductStatusTarget(target);
     setProductStatusOpen(true);
   };
 
   const handleConfirmProductStatus = async () => {
-    if (!productStatusTarget) return;
+    if (!productStatusTarget || !canManageProducts) return;
     const nextIsActive = productStatusTarget.isActive === false;
     setProductStatusLoading(true);
     try {
@@ -693,34 +688,40 @@ export default function ProductPage() {
                       {t("product.action.view")}
                     </Link>
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title={t("product.action.edit")}
-                    onClick={() => handleEditProduct(product)}
-                    disabled={!isActive}
-                    className="h-9 w-9 p-0"
-                  >
-                    <Edit2 size={14} className="text-blue-600" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title={t("product.action.delete")}
-                    onClick={() => handleDeleteProduct(product.id)}
-                    disabled={!isActive}
-                    className="h-9 w-9 p-0"
-                  >
-                    <Trash2 size={14} className="text-red-600" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-9 px-2 text-xs"
-                    onClick={() => openProductStatusDialog(product)}
-                  >
-                    {isActive ? t("status.deactivate") : t("status.activate")}
-                  </Button>
+                  {canManageProducts ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title={t("product.action.edit")}
+                        onClick={() => handleEditProduct(product)}
+                        disabled={!isActive}
+                        className="h-9 w-9 p-0"
+                      >
+                        <Edit2 size={14} className="text-blue-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title={t("product.action.delete")}
+                        onClick={() => handleDeleteProduct(product.id)}
+                        disabled={!isActive}
+                        className="h-9 w-9 p-0"
+                      >
+                        <Trash2 size={14} className="text-red-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 px-2 text-xs"
+                        onClick={() => openProductStatusDialog(product)}
+                      >
+                        {isActive
+                          ? t("status.deactivate")
+                          : t("status.activate")}
+                      </Button>
+                    </>
+                  ) : null}
                 </div>
               </div>
             </CardContent>
@@ -884,29 +885,34 @@ export default function ProductPage() {
                       </Link>
                     </Button>
                     <ActionMenu
-                      items={[
-                        {
-                          label: t("product.action.view"),
-                          onClick: () => router.push(`/product/${product.id}`),
-                        },
-                        {
-                          label: t("product.action.edit"),
-                          onClick: () => handleEditProduct(product),
-                          disabled: !isActive,
-                        },
-                        {
-                          label: isActive
-                            ? t("status.deactivate")
-                            : t("status.activate"),
-                          onClick: () => openProductStatusDialog(product),
-                        },
-                        {
-                          label: t("product.action.delete"),
-                          onClick: () => handleDeleteProduct(product.id),
-                          disabled: !isActive,
-                          destructive: true,
-                        },
-                      ]}
+                      items={
+                        canManageProducts
+                          ? [
+                              {
+                                label: t("product.action.view"),
+                                onClick: () =>
+                                  router.push(`/product/${product.id}`),
+                              },
+                              {
+                                label: t("product.action.edit"),
+                                onClick: () => handleEditProduct(product),
+                                disabled: !isActive,
+                              },
+                              {
+                                label: isActive
+                                  ? t("status.deactivate")
+                                  : t("status.activate"),
+                                onClick: () => openProductStatusDialog(product),
+                              },
+                              {
+                                label: t("product.action.delete"),
+                                onClick: () => handleDeleteProduct(product.id),
+                                disabled: !isActive,
+                                destructive: true,
+                              },
+                            ]
+                          : []
+                      }
                     />
                   </div>
                 </TableCell>
@@ -920,54 +926,43 @@ export default function ProductPage() {
 
   return (
     <div className="space-y-8">
-      {/* Hero Header Section */}
-      <div className="mb-8">
-        <div className="flex items-end justify-between gap-6 mb-1">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-foreground">
-              {t("product.header.title")}
-            </h1>
-            <p className="text-base text-muted-foreground mt-2 max-w-2xl">
-              {t("product.header.subtitle")}
-            </p>
-          </div>
+      <PageHeader
+        title={t("product.header.title")}
+        subtitle={t("product.header.subtitle")}
+        actions={
           <div className="flex flex-col items-end gap-3">
-            <Button
-              className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 font-semibold px-5"
-              disabled={!canManageProducts}
-              onClick={() => {
-                setCurrentProduct({
-                  id: "",
-                  description: "",
-                  image: "",
-                  images: [],
-                  gemstoneType: "",
-                  jewelryType: "",
-                  colorType: "",
-                  dimensions: {
-                    innerDiameterMm: undefined,
-                    ringSizeUS: undefined,
-                    lengthMm: undefined,
-                  },
-                  buyingPrice: "",
-                  sellingPrice: "",
-                  certificateId: "",
-                  certificateAuthority: "",
-                  certificateStatus: "Pending",
-                  certificateLink: "",
-                });
-                setIsDialogOpen(true);
-              }}
-            >
-              <Plus size={18} />
-              {t("product.add")}
-            </Button>
-            {!canManageProducts && (
-              <span className="text-xs text-muted-foreground italic">
-                title={t("product.view.table")}
-              </span>
-            )}
-            {!canViewBuyingPrice && (
+            {canManageProducts ? (
+              <Button
+                className="gap-2 font-semibold"
+                onClick={() => {
+                  setCurrentProduct({
+                    id: "",
+                    description: "",
+                    image: "",
+                    images: [],
+                    gemstoneType: "",
+                    jewelryType: "",
+                    colorType: "",
+                    dimensions: {
+                      innerDiameterMm: undefined,
+                      ringSizeUS: undefined,
+                      lengthMm: undefined,
+                    },
+                    buyingPrice: "",
+                    sellingPrice: "",
+                    certificateId: "",
+                    certificateAuthority: "",
+                    certificateStatus: "Pending",
+                    certificateLink: "",
+                  });
+                  setIsDialogOpen(true);
+                }}
+              >
+                <Plus size={18} />
+                {t("product.add")}
+              </Button>
+            ) : null}
+            {!canViewBuyingPrice ? (
               <div className="flex flex-col items-end gap-1.5">
                 <Button
                   size="sm"
@@ -980,16 +975,16 @@ export default function ProductPage() {
                     ? t("product.request.sending")
                     : t("product.request.cta")}
                 </Button>
-                {priceRequestMessage && (
+                {priceRequestMessage ? (
                   <span className="text-xs text-muted-foreground">
                     {priceRequestMessage}
                   </span>
-                )}
+                ) : null}
               </div>
-            )}
+            ) : null}
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Statistics Cards - Improved Layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1085,56 +1080,54 @@ export default function ProductPage() {
       {/* Filters and View Controls Card */}
       <Card className="border-border/50 shadow-lg">
         <CardHeader className="border-b border-border/40 pb-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl">
-                {t("product.title")}
-                <span className="text-muted-foreground text-base font-normal ml-2">
-                  ({filteredProducts.length})
-                </span>
-              </CardTitle>
+          <div className="flex items-center justify-between gap-4">
+            <CardTitle className="text-xl">
+              {t("product.title")}
+              <span className="text-muted-foreground text-base font-normal ml-2">
+                ({filteredProducts.length})
+              </span>
+            </CardTitle>
 
-              {/* View Toggle */}
-              <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
-                <Button
-                  variant={viewMode === "grid" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("grid")}
-                  className="h-8 w-8 p-0"
-                  title="Grid view"
-                >
-                  <Grid3X3 size={16} />
-                </Button>
-                <Button
-                  variant={viewMode === "table" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setViewMode("table")}
-                  className="h-8 w-8 p-0"
-                  title="Table view"
-                >
-                  <List size={16} />
-                </Button>
-              </div>
+            <div className="flex items-center gap-1 rounded-lg border border-border/60 bg-muted p-1">
+              <Button
+                variant={viewMode === "grid" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+                className="h-8 w-8 p-0"
+                title={t("product.viewMode.grid")}
+              >
+                <Grid3X3 size={16} />
+              </Button>
+              <Button
+                variant={viewMode === "table" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("table")}
+                className="h-8 w-8 p-0"
+                title={t("product.viewMode.table")}
+              >
+                <List size={16} />
+              </Button>
             </div>
+          </div>
+        </CardHeader>
 
-            {/* Filter Controls */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              {/* Search Input */}
-              <div className="relative flex-1 min-w-60 lg:max-w-md">
-                <Search
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
-                  size={16}
-                />
-                <Input
-                  placeholder={t("product.search")}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-background"
-                />
-              </div>
+        <CardContent className="pt-6">
+          <FilterBar
+            filters={
+              <>
+                <div className="relative flex-1 min-w-60 lg:max-w-md">
+                  <Search
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    size={16}
+                  />
+                  <Input
+                    placeholder={t("product.search")}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-background"
+                  />
+                </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Jewelry Type Filter */}
                 <div className="min-w-40 flex-1 sm:flex-none">
                   <Select
                     value={selectedJewelryType || "all"}
@@ -1158,7 +1151,6 @@ export default function ProductPage() {
                   </Select>
                 </div>
 
-                {/* Gemstone Type Filter */}
                 <div className="min-w-40 flex-1 sm:flex-none">
                   <Select
                     value={selectedGemstoneType || "all"}
@@ -1205,10 +1197,10 @@ export default function ProductPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
+              </>
+            }
+          />
+        </CardContent>
 
         {/* Content Area */}
         <CardContent className="pt-8">

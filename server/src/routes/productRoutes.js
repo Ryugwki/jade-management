@@ -7,16 +7,41 @@ import {
   updateProductStatus,
   updateProduct,
 } from "../controllers/productController.js";
-import { requireAdmin, requireAuth } from "../middleware/authMiddleware.js";
+import { requireAuth } from "../middleware/authMiddleware.js";
+import { requirePermission } from "../middleware/permissionMiddleware.js";
 
 const router = Router();
 
 router.use(requireAuth);
-router.get("/", listProducts);
-router.get("/:id", getProduct);
-router.patch("/:id/status", requireAdmin, updateProductStatus);
-router.post("/", requireAdmin, createProduct);
-router.put("/:id", requireAdmin, updateProduct);
-router.delete("/:id", requireAdmin, deleteProduct);
+router.get(
+  "/",
+  requirePermission("Inventory & products", "read"),
+  listProducts,
+);
+router.get(
+  "/:id",
+  requirePermission("Inventory & products", "read"),
+  getProduct,
+);
+router.patch(
+  "/:id/status",
+  requirePermission("Inventory & products", "manage"),
+  updateProductStatus,
+);
+router.post(
+  "/",
+  requirePermission("Inventory & products", "manage"),
+  createProduct,
+);
+router.put(
+  "/:id",
+  requirePermission("Inventory & products", "manage"),
+  updateProduct,
+);
+router.delete(
+  "/:id",
+  requirePermission("Inventory & products", "manage"),
+  deleteProduct,
+);
 
 export default router;
