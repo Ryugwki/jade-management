@@ -8,6 +8,7 @@ import {
   User,
   LogOut,
   Search,
+  Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -26,7 +27,11 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import * as notificationService from "@/services/notificationService";
 
-export function Navbar() {
+type NavbarProps = {
+  onOpenSidebar?: () => void;
+};
+
+export function Navbar({ onOpenSidebar }: NavbarProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { t } = useTranslation();
@@ -156,17 +161,26 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur">
-      <div className="px-6 py-3.5 flex items-center justify-between gap-6">
+      <div className="px-4 sm:px-6 xl:px-10 py-3.5 flex flex-nowrap items-center justify-between gap-3 min-w-0">
         {/* Left Section - Search */}
-        <div className="flex items-center gap-3 flex-1 max-w-xl">
-          <div className="relative w-full">
+        <div className="flex items-center gap-2 flex-1 min-w-0 sm:max-w-xl">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-lg border border-border/60 bg-background hover:bg-muted lg:hidden shrink-0"
+            onClick={onOpenSidebar}
+            aria-label="Open navigation"
+          >
+            <Menu size={18} className="text-muted-foreground" />
+          </Button>
+          <div className="relative flex-1 min-w-0">
             <Search
               size={16}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
             <Input
               placeholder={t("product.search")}
-              className="pl-10 bg-background border-border/70 focus:border-ring placeholder:text-muted-foreground/60"
+              className="w-full min-w-0 pl-10 bg-background border-border/70 focus:border-ring placeholder:text-muted-foreground/60"
             />
           </div>
         </div>
@@ -175,15 +189,15 @@ export function Navbar() {
         <div className="flex-none" />
 
         {/* Right Section - Icons & Profile */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 shrink-0 flex-nowrap max-md:min-w-[152px]">
           {/* Icon Buttons */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             {/* Settings Button */}
             <Button
               variant="ghost"
               size="icon"
               onClick={handleSettingsClick}
-              className="h-9 w-9 rounded-lg border border-border/60 bg-background hover:bg-muted transition-all duration-200 group"
+              className="h-9 w-9 rounded-lg border border-border/60 bg-background hover:bg-muted transition-all duration-200 group shrink-0"
               title={t("nav.settings")}
             >
               <Settings
@@ -214,7 +228,7 @@ export function Navbar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative h-9 w-9 rounded-lg border border-border/60 bg-background hover:bg-muted transition-all duration-200 group"
+                  className="relative h-9 w-9 rounded-lg border border-border/60 bg-background hover:bg-muted transition-all duration-200 group shrink-0"
                   title={t("nav.notifications")}
                 >
                   <Bell
@@ -351,7 +365,7 @@ export function Navbar() {
           {/* Profile Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-muted transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <button className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-muted transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-primary/20 shrink-0">
                 <Avatar className="h-8 w-8 border border-border/50">
                   <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                     {user?.name?.[0]?.toUpperCase() || t("nav.userInitial")}

@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LanguageContext";
 import * as userService from "@/services/userService";
 import * as permissionService from "@/services/permissionService";
+import { usePermission } from "@/hooks/usePermission";
 import {
   Card,
   CardContent,
@@ -333,6 +334,8 @@ export default function PermissionPage() {
   const router = useRouter();
   const { user, isReady } = useAuth();
   const { t, language } = useTranslation();
+  const canViewPermissions = usePermission("permission", "read");
+  const canManagePermissions = usePermission("permission", "manage");
   const auditLocale = language === "en" ? "en-US" : "vi-VN";
   const permissionLevels = useMemo<PermissionLevelsMap>(
     () => buildPermissionLevels(t),
@@ -570,10 +573,10 @@ export default function PermissionPage() {
       router.replace("/login");
       return;
     }
-    if (user.role !== "SUPER_ADMIN") {
+    if (!canViewPermissions) {
       router.replace("/dashboard");
     }
-  }, [isReady, user, router]);
+  }, [isReady, user, router, canViewPermissions]);
 
   useEffect(() => {
     if (!isReady || user?.role !== "SUPER_ADMIN") return;
@@ -581,9 +584,10 @@ export default function PermissionPage() {
   }, [isReady, refreshUsers, user?.role]);
 
   useEffect(() => {
-    if (!isReady || user?.role !== "SUPER_ADMIN") return;
+    if (!isReady || !canViewPermissions) return;
 
     const loadApprovals = async () => {
+      if (!canManagePermissions) return;
       setApprovalsLoading(true);
       try {
         const list = await permissionService.listApprovals();
@@ -594,6 +598,7 @@ export default function PermissionPage() {
     };
 
     const loadEmergency = async () => {
+      if (!canManagePermissions) return;
       const emergency = await permissionService.getEmergency();
       setLockStatus(emergency.status);
       setOverrideExpiresAt(
@@ -606,7 +611,13 @@ export default function PermissionPage() {
     refreshPolicy();
     loadApprovals();
     loadEmergency();
-  }, [auditLocale, isReady, refreshPolicy, user?.role]);
+  }, [
+    auditLocale,
+    isReady,
+    refreshPolicy,
+    canViewPermissions,
+    canManagePermissions,
+  ]);
 
   const summary = useMemo(() => {
     const criticalPermissions = permissionMatrix.reduce((total, row) => {
@@ -695,6 +706,7 @@ export default function PermissionPage() {
     roleKey: PermissionRoleKey,
     nextValue: PermissionLevelKey,
   ) => {
+    if (!canManagePermissions) return;
     const key = getPermissionKey(area, roleKey);
     const previousMatrix = permissionMatrix;
     let from: PermissionLevelKey | null = null;
@@ -1049,7 +1061,7 @@ export default function PermissionPage() {
     );
   }
 
-  if (!user || user.role !== "SUPER_ADMIN") {
+  if (!user || !canViewPermissions) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center text-sm text-muted-foreground">
         {t("permission.restricted")}
@@ -1058,20 +1070,25 @@ export default function PermissionPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 pb-12">
+    <div className="w-full max-w-none flex-1 min-w-0 space-y-8 pb-12 max-md:space-y-6">
       <PageHeader
         eyebrow={t("permission.header.badge")}
         title={t("permission.header.title")}
         subtitle={t("permission.header.subtitle")}
+        className="max-md:p-4"
         actions={
-          <>
-            <Button onClick={handleReviewChanges}>
+          <div className="flex flex-col gap-2 max-md:w-full sm:flex-row sm:items-center">
+            <Button onClick={handleReviewChanges} className="max-md:w-full">
               {t("permission.action.review")}
             </Button>
-            <Button variant="outline" onClick={handleExportPolicy}>
+            <Button
+              variant="outline"
+              onClick={handleExportPolicy}
+              className="max-md:w-full"
+            >
               {t("permission.action.export")}
             </Button>
-          </>
+          </div>
         }
       />
       <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -1080,7 +1097,7 @@ export default function PermissionPage() {
         <Badge variant="outline">{t("permission.header.audit")}</Badge>
       </div>
 
-      <section className="w-full space-y-4">
+      <section className="w-full space-y-4 max-md:space-y-3">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -1091,7 +1108,7 @@ export default function PermissionPage() {
             </h2>
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-3 items-start">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-start">
           {highlights.map((item) => (
             <Card
               key={item.label}
@@ -1102,7 +1119,7 @@ export default function PermissionPage() {
                   <item.icon size={16} className={item.tone} /> {item.label}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-2xl font-semibold">
+              <CardContent className="text-2xl font-semibold max-md:text-xl max-md:pt-0">
                 {item.value}
               </CardContent>
             </Card>
@@ -1110,7 +1127,7 @@ export default function PermissionPage() {
         </div>
       </section>
 
-      <section className="w-full space-y-4">
+      <section className="w-full space-y-4 max-md:space-y-3">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -1128,14 +1145,14 @@ export default function PermissionPage() {
               {t("permission.section.roles.cardSubtitle")}
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
+          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {roleCards.map((role) => (
               <button
                 key={role.title}
                 type="button"
                 onClick={() => setSelectedRoleTitle(role.title)}
                 className={cn(
-                  `w-full text-left rounded-2xl border border-border/70 bg-linear-to-br ${role.gradient} p-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background`,
+                  `w-full text-left rounded-2xl border border-border/70 bg-linear-to-br ${role.gradient} p-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background max-md:p-3`,
                   selectedRoleTitle === role.title
                     ? "border-primary/40 bg-primary/5 shadow-sm"
                     : "hover:border-primary/30",
@@ -1170,7 +1187,7 @@ export default function PermissionPage() {
         </Card>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 max-md:space-y-3">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -1224,8 +1241,8 @@ export default function PermissionPage() {
                 {t("permission.emergency.subtitle")}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-xl border border-border/70 bg-background/60 p-4 text-sm text-muted-foreground">
+            <CardContent className="space-y-4 max-md:space-y-3">
+              <div className="rounded-xl border border-border/70 bg-background/60 p-4 text-sm text-muted-foreground max-md:p-3">
                 {t("permission.emergency.note")}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1255,7 +1272,7 @@ export default function PermissionPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4 max-md:space-y-3">
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -1268,7 +1285,7 @@ export default function PermissionPage() {
         </div>
         <div className="w-full">
           <Card className="w-full border-border/60 shadow-sm">
-            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between max-md:items-stretch">
               <div>
                 <CardTitle>{t("permission.access.title")}</CardTitle>
                 <CardDescription>
@@ -1277,7 +1294,7 @@ export default function PermissionPage() {
               </div>
               <Button
                 onClick={handleOpenAddUser}
-                className="bg-primary text-primary-foreground hover:bg-(--jade-600)"
+                className="bg-primary text-primary-foreground hover:bg-(--jade-600) max-md:w-full"
               >
                 {t("permission.users.add")}
               </Button>
@@ -1306,7 +1323,7 @@ export default function PermissionPage() {
                       <div
                         key={entry.id}
                         className={cn(
-                          "rounded-lg border border-border/70 bg-muted/40 p-4 shadow-sm",
+                          "rounded-lg border border-border/70 bg-muted/40 p-4 shadow-sm max-md:p-3",
                           !isActive && "opacity-70 grayscale",
                         )}
                       >
@@ -1333,8 +1350,8 @@ export default function PermissionPage() {
                               {entry.email || t("permission.users.noEmail")}
                             </div>
                           </div>
-                          <div className="flex w-full flex-wrap items-center gap-3 sm:justify-end">
-                            <div className="flex min-w-37.5 flex-col gap-1">
+                          <div className="flex w-full flex-wrap items-center gap-3 sm:justify-end max-md:flex-col max-md:items-stretch">
+                            <div className="flex min-w-37.5 flex-col gap-1 max-md:min-w-0">
                               <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
                                 {t("permission.users.changeRole")}
                               </Label>
@@ -1345,7 +1362,7 @@ export default function PermissionPage() {
                                   handleRoleUpdate(entry.id, value as UserRole)
                                 }
                               >
-                                <SelectTrigger className="h-8 min-w-32.5">
+                                <SelectTrigger className="h-8 min-w-32.5 max-md:w-full max-md:min-w-0">
                                   <SelectValue
                                     placeholder={t(
                                       "permission.users.selectRole",
@@ -1365,11 +1382,12 @@ export default function PermissionPage() {
                                 </SelectContent>
                               </Select>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2 max-md:justify-start">
                               <Button
                                 size="sm"
                                 onClick={() => handleOpenEditPermissions(entry)}
                                 disabled={!isActive || isRowBusy}
+                                className="max-md:w-full"
                               >
                                 {t("permission.users.editPermissions")}
                               </Button>
@@ -1378,6 +1396,7 @@ export default function PermissionPage() {
                                 variant="outline"
                                 onClick={() => openUserStatusDialog(entry)}
                                 disabled={userStatusLoading || isStatusLoading}
+                                className="max-md:w-full"
                               >
                                 {isStatusLoading
                                   ? t("common.loading")
@@ -1436,11 +1455,11 @@ export default function PermissionPage() {
           <CardContent>
             <div
               className={cn(
-                "rounded-xl border border-border/60 bg-background/80 transition",
+                "rounded-xl border border-border/60 bg-background/80 transition overflow-x-auto",
                 selectedRoleKey ? "" : "opacity-80",
               )}
             >
-              <Table>
+              <Table className="min-w-225">
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("permission.matrix.area")}</TableHead>

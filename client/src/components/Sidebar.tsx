@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useMemo } from "react";
+import { usePermission } from "@/hooks/usePermission";
 
 type NavItem = {
   name: string;
@@ -16,10 +17,16 @@ type NavItem = {
   description?: string;
 };
 
-export function Sidebar() {
+type SidebarProps = {
+  variant?: "desktop" | "mobile";
+  onNavigate?: () => void;
+};
+
+export function Sidebar({ variant = "desktop", onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const canViewPermissions = usePermission("permission", "read");
 
   // Generate nav items using translations
   const navItems: NavItem[] = useMemo(
@@ -46,15 +53,22 @@ export function Sidebar() {
     [t],
   );
 
-  const filteredNavItems =
-    user?.role === "SUPER_ADMIN"
-      ? navItems
-      : navItems.filter((item) => item.href !== "/permission");
+  const filteredNavItems = navItems.filter((item) => {
+    if (item.href === "/permission") return canViewPermissions;
+    return true;
+  });
 
   const isActive = (href: string) => pathname === href;
 
+  const isMobile = variant === "mobile";
+
   return (
-    <aside className="hidden lg:flex bg-sidebar border-r border-sidebar-border/70 shadow-sm flex-col h-full w-72">
+    <aside
+      className={cn(
+        "bg-sidebar border-r border-sidebar-border/70 shadow-sm flex-col h-full",
+        isMobile ? "flex w-full" : "hidden lg:flex w-72",
+      )}
+    >
       {/* Logo Section - Enhanced */}
       <div className="border-b border-border/50 p-7">
         <div className="flex items-center gap-3.5">
@@ -82,6 +96,7 @@ export function Sidebar() {
                 <Link
                   key={name}
                   href={href}
+                  onClick={onNavigate}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-all duration-200 group border border-border/60 relative",
                     active

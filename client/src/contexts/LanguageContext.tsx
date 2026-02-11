@@ -551,6 +551,8 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.info.pricing": "Th\u00f4ng tin gi\u00e1",
     "product.info.certification":
       "Ki\u1ec3m \u0111\u1ecbnh & X\u00e1c th\u1ef1c",
+    "product.info.metadata": "Si\u00eau d\u1eef li\u1ec7u",
+    "product.info.extra": "Th\u00f4ng tin th\u00eam",
     "product.action.requestAccess": "Y\u00eau c\u1ea7u truy c\u1eadp",
     "product.buyLabel": "Gi\u00e1 nh\u1eadp:",
     "product.description.empty": "Kh\u00f4ng c\u00f3 m\u00f4 t\u1ea3",
@@ -586,6 +588,9 @@ const translations: Record<LanguageCode, TranslationMap> = {
       "H\u00ecnh \u1ea3nh ki\u1ec3m \u0111\u1ecbnh",
     "product.label.actions": "H\u00e0nh \u0111\u1ed9ng",
     "product.label.description": "M\u00f4 t\u1ea3",
+    "product.meta.createdAt": "T\u1ea1o l\u00fac",
+    "product.meta.updatedAt": "C\u1eadp nh\u1eadt",
+    "product.meta.updatedBy": "C\u1eadp nh\u1eadt b\u1edfi",
     "product.table.image": "H\u00ecnh \u1ea3nh",
 
     "product.placeholder.gemstone": "Ch\u1ecdn ch\u1ea5t",
@@ -636,6 +641,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.price.50to100": "50-100 tri\u1ec7u",
     "product.price.100to200": "100-200 tri\u1ec7u",
     "product.price.200to500": "200-500 tri\u1ec7u",
+    "product.price.unit": "tri\u1ec7u",
 
     "role.superAdmin": "Super Admin",
     "role.admin": "Admin",
@@ -1082,6 +1088,8 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.info.dimensions": "Dimensions & Specifications",
     "product.info.pricing": "Pricing Information",
     "product.info.certification": "Certification & Authenticity",
+    "product.info.metadata": "Metadata",
+    "product.info.extra": "Extra fields",
     "product.action.requestAccess": "Request Access",
     "product.buyLabel": "Buy:",
     "product.description.empty": "No description",
@@ -1115,6 +1123,9 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.label.certificateImage": "Certificate image",
     "product.label.actions": "Actions",
     "product.label.description": "Description",
+    "product.meta.createdAt": "Created",
+    "product.meta.updatedAt": "Last updated",
+    "product.meta.updatedBy": "Updated by",
     "product.table.image": "Image",
 
     "product.placeholder.gemstone": "Select gemstone",
@@ -1164,6 +1175,7 @@ const translations: Record<LanguageCode, TranslationMap> = {
     "product.price.50to100": "50-100 million",
     "product.price.100to200": "100-200 million",
     "product.price.200to500": "200-500 million",
+    "product.price.unit": "million",
 
     "role.superAdmin": "Super Admin",
     "role.admin": "Admin",

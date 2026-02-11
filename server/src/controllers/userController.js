@@ -2,13 +2,20 @@ import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
 
 const normalizeRole = (role) => (role === "FREELANCER" ? "GUEST" : role);
+const normalizePermissions = (permissions) => {
+  if (!permissions) return {};
+  if (permissions instanceof Map) {
+    return Object.fromEntries(permissions.entries());
+  }
+  return permissions;
+};
 
 const toSafeUser = (user) => ({
   id: user._id.toString(),
   name: user.name,
   email: user.email,
   role: normalizeRole(user.role),
-  permissions: user.permissions || {},
+  permissions: normalizePermissions(user.permissions),
   isActive: user.isActive !== false,
   updatedBy: user.updatedBy?.toString(),
   phone: user.phone || "",

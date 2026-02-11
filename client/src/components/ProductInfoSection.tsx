@@ -155,12 +155,10 @@ export function PriceDisplay({
  */
 export interface CertificateStatusBadgeProps {
   status: "verified" | "pending" | "unverified";
-  large?: boolean;
 }
 
 export function CertificateStatusBadge({
   status,
-  large = false,
 }: CertificateStatusBadgeProps) {
   const { t } = useTranslation();
   const variants = {
@@ -178,11 +176,7 @@ export function CertificateStatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn(
-        variants[status],
-        "font-semibold",
-        large && "px-3 py-1.5 text-sm",
-      )}
+      className={cn(variants[status], "text-[11px] font-semibold")}
     >
       {labels[status]}
     </Badge>

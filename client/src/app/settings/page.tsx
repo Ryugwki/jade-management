@@ -101,7 +101,7 @@ export default function SettingsPage() {
         subtitle={t("settings.subtitle")}
       />
 
-      <section className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr] items-start">
+      <section className="grid gap-6 md:grid-cols-2 items-start">
         <div className="space-y-6">
           <SectionCard
             title={t("settings.section.preferences.title")}
@@ -114,7 +114,7 @@ export default function SettingsPage() {
               </Button>
             }
           >
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="settings-language">
                   {t("common.language")}
@@ -188,7 +188,7 @@ export default function SettingsPage() {
                 onChange={(e) => setCurrentPassword(e.target.value)}
               />
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="new-password">{t("common.newPassword")}</Label>
                 <Input

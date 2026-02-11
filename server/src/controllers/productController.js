@@ -8,6 +8,18 @@ const canViewBuyingPrice = (role, permissions) => {
 };
 
 const sanitizeProduct = (product, role, permissions) => {
+  const updatedById =
+    product.updatedBy && typeof product.updatedBy === "object"
+      ? product.updatedBy._id?.toString()
+      : product.updatedBy?.toString();
+  const updatedByUser =
+    product.updatedBy && typeof product.updatedBy === "object"
+      ? {
+          id: updatedById,
+          name: product.updatedBy.name,
+          role: product.updatedBy.role,
+        }
+      : undefined;
   const base = {
     id: product._id.toString(),
     description: product.description,
@@ -28,7 +40,8 @@ const sanitizeProduct = (product, role, permissions) => {
     certificateStatus: product.certificateStatus,
     certificateLink: product.certificateLink,
     isActive: product.isActive !== false,
-    updatedBy: product.updatedBy?.toString(),
+    updatedBy: updatedById,
+    updatedByUser,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
   };
@@ -41,7 +54,10 @@ const sanitizeProduct = (product, role, permissions) => {
 };
 
 export async function listProducts(req, res) {
-  const products = await Product.find().sort({ createdAt: -1 }).exec();
+  const products = await Product.find()
+    .populate("updatedBy", "name role")
+    .sort({ createdAt: -1 })
+    .exec();
   const payload = products.map((product) =>
     sanitizeProduct(product, req.user?.role, req.user?.permissions),
   );
@@ -49,7 +65,9 @@ export async function listProducts(req, res) {
 }
 
 export async function getProduct(req, res) {
-  const product = await Product.findById(req.params.id).exec();
+  const product = await Product.findById(req.params.id)
+    .populate("updatedBy", "name role")
+    .exec();
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
   }
@@ -67,11 +85,9 @@ export async function createProduct(req, res) {
     payload.image = payload.images[0];
   }
   const product = await Product.create(payload);
-  return res
-    .status(201)
-    .json({
-      product: sanitizeProduct(product, req.user?.role, req.user?.permissions),
-    });
+  return res.status(201).json({
+    product: sanitizeProduct(product, req.user?.role, req.user?.permissions),
+  });
 }
 
 export async function updateProduct(req, res) {

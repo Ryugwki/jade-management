@@ -54,13 +54,17 @@ const getLevelRank = (level?: UserPermissionLevel | null) =>
 const defaultLevelForRole = (role: User["role"], area: string) => {
   if (role === "SUPER_ADMIN") return "full" as const;
   if (role === "ADMIN") {
-    if (area === "Inventory & products" || area === "Pricing & billing") {
-      return "manage" as const;
-    }
+    if (area === "Inventory & products") return "manage" as const;
+    if (area === "Certificates") return "manage" as const;
+    if (area === "User management") return "limited" as const;
+    if (area === "Pricing & billing") return "manage" as const;
+    if (area === "Security settings") return "read" as const;
+    if (area === "Audit logs") return "read" as const;
     return "none" as const;
   }
   if (role === "GUEST") {
     if (area === "Inventory & products") return "read" as const;
+    if (area === "Certificates") return "limited" as const;
     return "none" as const;
   }
   return "none" as const;

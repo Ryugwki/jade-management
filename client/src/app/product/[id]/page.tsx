@@ -23,7 +23,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/StatusBadge";
-import { PageHeader } from "@/components/layout/PageHeader";
 import {
   InfoRowItem,
   SpecificationList,
@@ -47,8 +46,8 @@ import { usePermission } from "@/hooks/usePermission";
 import * as permissionService from "@/services/permissionService";
 import { toast } from "sonner";
 
-const normalizeStatus = (status?: CertificateStatus) =>
-  status ? status.toLowerCase() : "unverified";
+const normalizeStatus = (status?: CertificateStatus): CertificateStatus =>
+  status ? (status.toLowerCase() as CertificateStatus) : "unverified";
 
 const formatMoney = (value?: string) => {
   if (value === undefined || value === null || value === "") return "0";
@@ -63,6 +62,32 @@ const formatNumberValue = (value?: number) =>
 
 const parseNumberInput = (value: string) =>
   value.trim() === "" ? undefined : Number(value);
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString();
+};
+
+const formatRoleLabel = (role?: string) => {
+  if (!role) return "";
+  return role
+    .split("_")
+    .map((segment) =>
+      segment.length ? segment[0] + segment.slice(1).toLowerCase() : segment,
+    )
+    .join(" ");
+};
+
+const formatUpdatedBy = (product?: Product | null) => {
+  const user = product?.updatedByUser;
+  const roleLabel = formatRoleLabel(user?.role);
+  if (roleLabel && user?.name) return `${roleLabel} - ${user.name}`;
+  if (user?.name) return user.name;
+  if (roleLabel) return roleLabel;
+  return "—";
+};
 
 export default function ProductDetailsPage() {
   const params = useParams();
@@ -105,6 +130,7 @@ export default function ProductDetailsPage() {
     ...data,
     images: data.images?.length ? data.images : data.image ? [data.image] : [],
     image: data.images?.[0] || data.image,
+    certificateStatus: normalizeStatus(data.certificateStatus),
   });
 
   const viewProduct = useMemo(
@@ -428,7 +454,13 @@ export default function ProductDetailsPage() {
     if (!draft.jewelryType) nextErrors.jewelryType = requiredMessage;
     if (!draft.colorType) nextErrors.colorType = requiredMessage;
     if (!draft.sellingPrice) nextErrors.sellingPrice = requiredMessage;
-    if (!draft.certificateId) nextErrors.certificateId = requiredMessage;
+    const normalizedStatus = normalizeStatus(draft.certificateStatus);
+    if (
+      (normalizedStatus === "verified" || normalizedStatus === "pending") &&
+      !draft.certificateId
+    ) {
+      nextErrors.certificateId = requiredMessage;
+    }
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
       toast.error(t("product.error.missing"));
@@ -436,8 +468,15 @@ export default function ProductDetailsPage() {
     }
     setIsSaving(true);
     try {
+      const { id, updatedBy, updatedByUser, createdAt, updatedAt, ...rest } =
+        draft;
+      void id;
+      void updatedBy;
+      void updatedByUser;
+      void createdAt;
+      void updatedAt;
       const payload: Partial<Product> = {
-        ...draft,
+        ...rest,
         images: draft.images?.length
           ? draft.images
           : draft.image
@@ -451,8 +490,13 @@ export default function ProductDetailsPage() {
       setDraft(null);
       setIsEditing(false);
       toast.success(t("product.feedback.updated"));
-    } catch {
-      toast.error(t("product.error.save"));
+    } catch (error: unknown) {
+      const message =
+        error && typeof error === "object" && "response" in error
+          ? (error as { response?: { data?: { message?: string } } }).response
+              ?.data?.message
+          : undefined;
+      toast.error(message || t("product.error.save"));
     } finally {
       setIsSaving(false);
     }
@@ -608,7 +652,9 @@ export default function ProductDetailsPage() {
             <Select
               value={draft?.dimensions?.shape || ""}
               onValueChange={(value) =>
-                updateDraftDimensions({ shape: value || "" })
+                updateDraftDimensions({
+                  shape: value as "round" | "oval" | "",
+                })
               }
             >
               <SelectTrigger>
@@ -629,7 +675,9 @@ export default function ProductDetailsPage() {
             <Select
               value={draft?.dimensions?.bangleProfile || ""}
               onValueChange={(value) =>
-                updateDraftDimensions({ bangleProfile: value || "" })
+                updateDraftDimensions({
+                  bangleProfile: value as "round" | "flat" | "",
+                })
               }
             >
               <SelectTrigger>
@@ -822,7 +870,14 @@ export default function ProductDetailsPage() {
             <Select
               value={draft?.dimensions?.earringType || ""}
               onValueChange={(value) =>
-                updateDraftDimensions({ earringType: value || "" })
+                updateDraftDimensions({
+                  earringType: value as
+                    | "stud"
+                    | "drop"
+                    | "hoop"
+                    | "dangle"
+                    | "",
+                })
               }
             >
               <SelectTrigger>
@@ -889,26 +944,27 @@ export default function ProductDetailsPage() {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-6xl space-y-6">
-        <PageHeader
-          eyebrow={t("product.label.gemstone")}
-          title={
-            <div className="flex flex-wrap items-center gap-3">
-              <span>
-                {formatGemstoneTypeL((viewProduct || product).gemstoneType) ||
-                  formatJewelryTypeL((viewProduct || product).jewelryType) ||
-                  t("product.label.gemstone")}
-              </span>
-              <StatusBadge isActive={isActive} />
-              <CertificateStatusBadge
-                status={formatStatusBadge(
-                  (viewProduct || product).certificateStatus,
-                )}
-                large
-              />
+      <div className="w-full px-6 xl:px-10 space-y-6">
+        <div className="rounded-2xl border border-border/60 bg-card/80 px-6 py-5 elevation-1">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-2">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                {t("product.label.gemstone")}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-semibold text-foreground md:text-3xl">
+                  {formatGemstoneTypeL((viewProduct || product).gemstoneType) ||
+                    formatJewelryTypeL((viewProduct || product).jewelryType) ||
+                    t("product.label.gemstone")}
+                </h1>
+                <StatusBadge isActive={isActive} />
+                <CertificateStatusBadge
+                  status={formatStatusBadge(
+                    (viewProduct || product).certificateStatus,
+                  )}
+                />
+              </div>
             </div>
-          }
-          actions={
             <div className="flex flex-wrap items-center gap-3">
               <Button variant="outline" onClick={() => router.push("/product")}>
                 {t("product.action.backToProducts")}
@@ -951,12 +1007,12 @@ export default function ProductDetailsPage() {
                 )
               ) : null}
             </div>
-          }
-        />
+          </div>
+        </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <section className="rounded-xl border border-border/60 bg-card p-4">
-            <div className="flex items-center justify-between gap-2 pb-3">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6 items-start">
+          <section className="rounded-2xl border border-border/60 bg-card/80 p-5 elevation-1 xl:col-span-2 xl:sticky xl:top-24">
+            <div className="flex items-center justify-between gap-2 pb-4">
               <h2 className="text-sm font-semibold text-foreground">
                 {t("product.label.image")}
               </h2>
@@ -966,203 +1022,208 @@ export default function ProductDetailsPage() {
                 </Badge>
               )}
             </div>
-            {isEditing ? (
-              <div className="space-y-4">
-                {draftImages.length > 0 ? (
-                  <div className="space-y-3">
-                    {draftImages.map((url, index) => (
-                      <div
-                        key={`${url}-${index}`}
-                        className={`flex flex-wrap items-center gap-3 rounded-md px-2 py-2 transition ${
-                          dragOverIndex === index
-                            ? "bg-muted/60 ring-1 ring-foreground/10"
-                            : ""
-                        }`}
-                        draggable
-                        onDragStart={() => handleDragStart(index)}
-                        onDragEnter={() => handleDragEnter(index)}
-                        onDragOver={handleDragOver}
-                        onDrop={() => handleDrop(index)}
-                        onDragEnd={() => {
-                          setDraggedImageIndex(null);
-                          setDragOverIndex(null);
-                        }}
-                      >
-                        <div className="text-xs font-semibold text-muted-foreground">
-                          ::
-                        </div>
-                        <div className="relative h-12 w-12 overflow-hidden rounded-md border border-border/60 bg-muted">
-                          {url ? (
-                            <Image
-                              src={url}
-                              alt={t("product.image.altIndex", {
-                                index: index + 1,
-                              })}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
-                          ) : null}
-                        </div>
-                        <Input
-                          value={url}
-                          onChange={(event) =>
-                            handleImageUrlChange(index, event.target.value)
-                          }
-                          className="flex-1 min-w-[220px]"
-                        />
-                        <div className="flex flex-wrap items-center gap-2">
-                          {index !== 0 ? (
+            <div className="space-y-4">
+              <div className="relative aspect-square max-h-150 w-full overflow-hidden rounded-xl border border-border/60 bg-muted/60">
+                {primaryImage ? (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPreview(primaryImage)}
+                    className="group relative h-full w-full"
+                    aria-label={t("product.image.preview")}
+                  >
+                    <Image
+                      src={primaryImage}
+                      alt={t("product.image.altIndex", { index: 1 })}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/0 text-xs font-medium text-white opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100">
+                      {t("product.image.preview")}
+                    </div>
+                  </button>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    {t("product.image.none")}
+                  </div>
+                )}
+              </div>
+              {secondaryImages.length > 0 && (
+                <div className="grid grid-cols-4 gap-3">
+                  {secondaryImages.map((url, index) => (
+                    <button
+                      key={`${url}-${index + 1}`}
+                      type="button"
+                      onClick={() => handleOpenPreview(url)}
+                      className="group relative aspect-square overflow-hidden rounded-md border border-border/60 bg-muted"
+                      aria-label={t("product.image.preview")}
+                    >
+                      <Image
+                        src={url}
+                        alt={t("product.image.altIndex", {
+                          index: index + 2,
+                        })}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        unoptimized
+                      />
+                      <div className="absolute inset-0 bg-black/0 opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {isEditing ? (
+                <div className="space-y-4">
+                  {draftImages.length > 0 ? (
+                    <div className="space-y-3">
+                      {draftImages.map((url, index) => (
+                        <div
+                          key={`${url}-${index}`}
+                          className={`flex flex-wrap items-center gap-3 rounded-md px-2 py-2 transition ${
+                            dragOverIndex === index
+                              ? "bg-muted/60 ring-1 ring-foreground/10"
+                              : ""
+                          }`}
+                          draggable
+                          onDragStart={() => handleDragStart(index)}
+                          onDragEnter={() => handleDragEnter(index)}
+                          onDragOver={handleDragOver}
+                          onDrop={() => handleDrop(index)}
+                          onDragEnd={() => {
+                            setDraggedImageIndex(null);
+                            setDragOverIndex(null);
+                          }}
+                        >
+                          <div className="text-xs font-semibold text-muted-foreground">
+                            ::
+                          </div>
+                          <div className="relative h-12 w-12 overflow-hidden rounded-md border border-border/60 bg-muted">
+                            {url ? (
+                              <Image
+                                src={url}
+                                alt={t("product.image.altIndex", {
+                                  index: index + 1,
+                                })}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            ) : null}
+                          </div>
+                          <Input
+                            value={url}
+                            onChange={(event) =>
+                              handleImageUrlChange(index, event.target.value)
+                            }
+                            className="flex-1 min-w-55"
+                          />
+                          <div className="flex flex-wrap items-center gap-2">
+                            {index !== 0 ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSetPrimaryImage(index)}
+                              >
+                                {t("product.image.makePrimary")}
+                              </Button>
+                            ) : null}
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => handleSetPrimaryImage(index)}
+                              onClick={() => handleRemoveImage(index)}
                             >
-                              {t("product.image.makePrimary")}
+                              {t("product.image.remove")}
                             </Button>
-                          ) : null}
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRemoveImage(index)}
-                          >
-                            {t("product.image.remove")}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-border/70 bg-muted/40 py-8 text-center text-sm text-muted-foreground">
-                    {t("product.image.none")}
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                    {t("product.image.choose")}
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(event) => handleUploadImages(event.target.files)}
-                    className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-semibold"
-                    disabled={isUploadingImage}
-                  />
-                  {isUploadingImage ? (
-                    <p className="text-xs text-muted-foreground">
-                      {t("product.image.uploading")}
-                    </p>
-                  ) : null}
-                  {uploadQueue.length > 0 && (
-                    <div className="space-y-1">
-                      {uploadQueue.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between text-xs text-muted-foreground"
-                        >
-                          <span className="truncate">{item.name}</span>
-                          <span
-                            className={
-                              item.status === "error"
-                                ? "text-destructive"
-                                : item.status === "done"
-                                  ? "text-emerald-600"
-                                  : "text-muted-foreground"
-                            }
-                          >
-                            {item.status === "uploading"
-                              ? t("product.image.uploading")
-                              : item.status === "done"
-                                ? t("product.image.uploaded")
-                                : t("product.image.uploadFailed")}
-                          </span>
+                          </div>
                         </div>
                       ))}
                     </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border/70 bg-muted/40 py-8 text-center text-sm text-muted-foreground">
+                      {t("product.image.none")}
+                    </div>
                   )}
-                  {imageUploadError ? (
-                    <p className="text-xs text-destructive">
-                      {imageUploadError}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                    {t("product.image.addUrl")}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                      value={newImageUrl}
-                      onChange={(event) => setNewImageUrl(event.target.value)}
-                      placeholder={t("product.image.urlPlaceholder")}
-                      className="flex-1 min-w-[220px]"
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                      {t("product.image.choose")}
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(event) =>
+                        handleUploadImages(event.target.files)
+                      }
+                      className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-semibold"
+                      disabled={isUploadingImage}
                     />
-                    <Button
-                      type="button"
-                      onClick={handleAddImage}
-                      disabled={!newImageUrl.trim() || isUploadingImage}
-                    >
-                      {t("product.image.addAction")}
-                    </Button>
+                    {isUploadingImage ? (
+                      <p className="text-xs text-muted-foreground">
+                        {t("product.image.uploading")}
+                      </p>
+                    ) : null}
+                    {uploadQueue.length > 0 && (
+                      <div className="space-y-1">
+                        {uploadQueue.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between text-xs text-muted-foreground"
+                          >
+                            <span className="truncate">{item.name}</span>
+                            <span
+                              className={
+                                item.status === "error"
+                                  ? "text-destructive"
+                                  : item.status === "done"
+                                    ? "text-emerald-600"
+                                    : "text-muted-foreground"
+                              }
+                            >
+                              {item.status === "uploading"
+                                ? t("product.image.uploading")
+                                : item.status === "done"
+                                  ? t("product.image.uploaded")
+                                  : t("product.image.uploadFailed")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {imageUploadError ? (
+                      <p className="text-xs text-destructive">
+                        {imageUploadError}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                      {t("product.image.addUrl")}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Input
+                        value={newImageUrl}
+                        onChange={(event) => setNewImageUrl(event.target.value)}
+                        placeholder={t("product.image.urlPlaceholder")}
+                        className="flex-1 min-w-55"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleAddImage}
+                        disabled={!newImageUrl.trim() || isUploadingImage}
+                      >
+                        {t("product.image.addAction")}
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : primaryImage ? (
-              <div className="space-y-4">
-                <button
-                  type="button"
-                  onClick={() => handleOpenPreview(primaryImage)}
-                  className="group relative aspect-square w-full overflow-hidden rounded-lg border border-border/60 bg-muted"
-                  aria-label={t("product.image.preview")}
-                >
-                  <Image
-                    src={primaryImage}
-                    alt={t("product.image.altIndex", { index: 1 })}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    unoptimized
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 text-xs font-medium text-white opacity-0 transition group-hover:bg-black/30 group-hover:opacity-100">
-                    {t("product.image.preview")}
-                  </div>
-                </button>
-                {secondaryImages.length > 0 && (
-                  <div className="grid grid-cols-4 gap-3">
-                    {secondaryImages.map((url, index) => (
-                      <button
-                        key={`${url}-${index + 1}`}
-                        type="button"
-                        onClick={() => handleOpenPreview(url)}
-                        className="group relative aspect-square overflow-hidden rounded-md border border-border/60 bg-muted"
-                        aria-label={t("product.image.preview")}
-                      >
-                        <Image
-                          src={url}
-                          alt={t("product.image.altIndex", {
-                            index: index + 2,
-                          })}
-                          fill
-                          className="object-cover transition-transform duration-300 group-hover:scale-105"
-                          unoptimized
-                        />
-                        <div className="absolute inset-0 bg-black/0 opacity-0 transition group-hover:bg-black/20 group-hover:opacity-100" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-lg border border-dashed border-border/70 bg-muted/40 py-16 text-center text-sm text-muted-foreground">
-                {t("product.image.none")}
-              </div>
-            )}
+              ) : null}
+            </div>
           </section>
 
-          <section className="rounded-xl border border-border/60 bg-card">
-            <div className="space-y-6 p-5">
+          <section className="xl:col-span-3 grid gap-6 lg:grid-cols-2 auto-rows-fr">
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-5 elevation-1 h-full">
               <div className="space-y-3">
                 <h2 className="text-base font-semibold text-foreground">
                   {t("product.info.basicInformation")}
@@ -1189,7 +1250,9 @@ export default function ProductDetailsPage() {
                         <Select
                           value={draft?.gemstoneType || ""}
                           onValueChange={(value) => {
-                            updateDraft({ gemstoneType: value });
+                            updateDraft({
+                              gemstoneType: value as Product["gemstoneType"],
+                            });
                             clearFieldError("gemstoneType");
                           }}
                         >
@@ -1214,7 +1277,9 @@ export default function ProductDetailsPage() {
                         <Select
                           value={draft?.jewelryType || ""}
                           onValueChange={(value) => {
-                            updateDraft({ jewelryType: value });
+                            updateDraft({
+                              jewelryType: value as Product["jewelryType"],
+                            });
                             clearFieldError("jewelryType");
                           }}
                         >
@@ -1268,21 +1333,10 @@ export default function ProductDetailsPage() {
                   )}
                 </div>
               </div>
+            </div>
 
-              {(isEditing || dimensionEntries.length > 0) && (
-                <div className="space-y-3 border-t border-border/40 pt-5">
-                  <h2 className="text-base font-semibold text-foreground">
-                    {t("product.info.dimensions")}
-                  </h2>
-                  {isEditing ? (
-                    <div className="space-y-1">{renderDimensionInputs()}</div>
-                  ) : (
-                    <SpecificationList specs={dimensionEntries} />
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-4 border-t border-border/40 pt-5">
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-5 elevation-1 h-full">
+              <div className="space-y-4">
                 <h2 className="text-base font-semibold text-foreground">
                   {t("product.info.pricing")}
                 </h2>
@@ -1368,8 +1422,25 @@ export default function ProductDetailsPage() {
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="space-y-3 border-t border-border/40 pt-5">
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-5 elevation-1 h-full">
+              <div className="space-y-3">
+                <h2 className="text-base font-semibold text-foreground">
+                  {t("product.info.dimensions")}
+                </h2>
+                {isEditing ? (
+                  <div className="space-y-1">{renderDimensionInputs()}</div>
+                ) : dimensionEntries.length > 0 ? (
+                  <SpecificationList specs={dimensionEntries} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">—</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-5 elevation-1 h-full">
+              <div className="space-y-3">
                 <h2 className="text-base font-semibold text-foreground">
                   {t("product.info.certification")}
                 </h2>
@@ -1380,9 +1451,12 @@ export default function ProductDetailsPage() {
                         t("product.label.certificateStatus"),
                         <Select
                           value={normalizeStatus(draft?.certificateStatus)}
-                          onValueChange={(value) =>
-                            updateDraft({ certificateStatus: value })
-                          }
+                          onValueChange={(value) => {
+                            updateDraft({
+                              certificateStatus: value as CertificateStatus,
+                            });
+                            clearFieldError("certificateId");
+                          }}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder={t("common.select")} />
@@ -1472,11 +1546,43 @@ export default function ProductDetailsPage() {
                 </div>
               </div>
             </div>
+
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-5 elevation-1 h-full">
+              <div className="space-y-3">
+                <h2 className="text-base font-semibold text-foreground">
+                  {t("product.info.metadata")}
+                </h2>
+                <div className="space-y-1">
+                  <InfoRowItem
+                    label={t("product.meta.createdAt")}
+                    value={formatDateTime((viewProduct || product).createdAt)}
+                  />
+                  <InfoRowItem
+                    label={t("product.meta.updatedAt")}
+                    value={formatDateTime((viewProduct || product).updatedAt)}
+                  />
+                  <InfoRowItem
+                    label={t("product.meta.updatedBy")}
+                    value={formatUpdatedBy(viewProduct || product)}
+                    variant="muted"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/60 bg-card/80 p-5 elevation-1 h-full">
+              <div className="space-y-2">
+                <h2 className="text-base font-semibold text-foreground">
+                  {t("product.info.extra")}
+                </h2>
+                <p className="text-sm text-muted-foreground">—</p>
+              </div>
+            </div>
           </section>
         </div>
       </div>
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="flex w-[96vw] max-w-screen-xl items-center justify-center border-0 bg-transparent p-0 shadow-none sm:max-w-screen-2xl">
+        <DialogContent className="flex w-[96vw] max-w-7xl items-center justify-center border-0 bg-transparent p-0 shadow-none sm:max-w-screen-2xl">
           <DialogHeader>
             <DialogTitle className="sr-only">
               {t("product.image.preview")}

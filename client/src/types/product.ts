@@ -1,3 +1,5 @@
+import type { UserRole } from "@/types/user";
+
 export type JewelryType =
   | "Bracelet"
   | "Beadedbracelet"
@@ -24,6 +26,11 @@ export interface Product {
   colorType: string;
   isActive?: boolean;
   updatedBy?: string;
+  updatedByUser?: {
+    id?: string;
+    name?: string;
+    role?: UserRole;
+  };
   dimensions: {
     innerDiameterMm?: number;
     widthMm?: number;

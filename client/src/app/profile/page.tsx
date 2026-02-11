@@ -131,7 +131,7 @@ export default function ProfilePage() {
         }
         subtitle={user?.email || t("common.placeholder")}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? t("common.saving") : t("profile.save")}
             </Button>
@@ -142,13 +142,13 @@ export default function ProfilePage() {
         }
       />
 
-      <section className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr] items-start">
+      <section className="grid gap-6 md:grid-cols-2 items-start">
         <SectionCard
           title={t("profile.section.personal.title")}
           subtitle={t("profile.section.personal.subtitle")}
           contentClassName="space-y-5"
         >
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="profile-name">{t("profile.displayName")}</Label>
               <Input

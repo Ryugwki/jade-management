@@ -165,7 +165,7 @@ export default function DashboardPage() {
         <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           {t("dashboard.section.snapshot.title")}
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-start">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 items-start">
           <StatCard
             label={t("dashboard.products")}
             value={loading ? t("common.loadingShort") : stats.products}
@@ -187,7 +187,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr_0.9fr] items-start">
+      <section className="grid grid-cols-1 gap-6 md:grid-cols-2 items-start">
         <SectionCard
           title={t("dashboard.section.inventory.title")}
           subtitle={t("dashboard.section.inventory.subtitle")}

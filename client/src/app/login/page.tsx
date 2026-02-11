@@ -67,8 +67,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.08),_transparent_55%),radial-gradient(circle_at_80%_20%,_rgba(234,179,8,0.08),_transparent_45%)] text-foreground flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.08),_transparent_55%),radial-gradient(circle_at_80%_20%,_rgba(234,179,8,0.08),_transparent_45%)] text-foreground flex items-center justify-center p-4 sm:p-6 xl:p-10">
+      <div className="w-full sm:max-w-md">
         <Card className="border-border/70 shadow-[0_20px_50px_rgba(15,23,42,0.12)] bg-card">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl">{t("auth.signIn")}</CardTitle>

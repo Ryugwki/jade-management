@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useLoading } from "@/contexts/LoadingContext";
@@ -12,6 +18,7 @@ import { FeedbackModal } from "@/components/FeedbackModal";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, isReady } = useAuth();
   const { t } = useTranslation();
   const { startLoading, stopLoading } = useLoading();
@@ -85,11 +92,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
       <div className="flex flex-col flex-1">
-        <Navbar />
-        <main className="flex-1 overflow-auto bg-muted/30 p-6 lg:p-8">
+        <Navbar onOpenSidebar={() => setSidebarOpen(true)} />
+        <main className="flex-1 overflow-auto bg-muted/30 p-4 sm:p-6 xl:p-10">
           {children}
         </main>
       </div>
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" className="p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Navigation</SheetTitle>
+          </SheetHeader>
+          <Sidebar variant="mobile" onNavigate={() => setSidebarOpen(false)} />
+        </SheetContent>
+      </Sheet>
       <GlobalLoadingOverlay />
       <FeedbackModal />
     </div>

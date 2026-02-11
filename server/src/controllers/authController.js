@@ -17,13 +17,20 @@ const COOKIE_OPTIONS = {
 };
 
 const normalizeRole = (role) => (role === "FREELANCER" ? "GUEST" : role);
+const normalizePermissions = (permissions) => {
+  if (!permissions) return {};
+  if (permissions instanceof Map) {
+    return Object.fromEntries(permissions.entries());
+  }
+  return permissions;
+};
 
 const toSafeUser = (user) => ({
   id: user._id.toString(),
   name: user.name,
   email: user.email,
   role: normalizeRole(user.role),
-  permissions: user.permissions || {},
+  permissions: normalizePermissions(user.permissions),
   phone: user.phone || "",
   address: user.address || "",
   avatarUrl: user.avatarUrl || "",

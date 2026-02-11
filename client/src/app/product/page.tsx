@@ -65,14 +65,23 @@ export default function ProductPage() {
   const { showFeedback } = useFeedback();
   const canViewBuyingPrice = usePermission("pricing", "read");
   const canManageProducts = usePermission("product", "manage");
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  type ProductWithPrice = Product & {
+    priceRaw?: string;
+    priceDisplay?: string;
+    priceMin?: number;
+    priceMax?: number;
+  };
+
+  const [allProducts, setAllProducts] = useState<ProductWithPrice[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedJewelryType, setSelectedJewelryType] = useState("");
   const [selectedGemstoneType, setSelectedGemstoneType] = useState("");
   const [selectedPriceRange, setSelectedPriceRange] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [currentProduct, setCurrentProduct] = useState<ProductWithPrice | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -85,7 +94,8 @@ export default function ProductPage() {
   const [productStatusOpen, setProductStatusOpen] = useState(false);
   const [productStatusLoading, setProductStatusLoading] = useState(false);
   const [productStatusTarget, setProductStatusTarget] =
-    useState<Product | null>(null);
+    useState<ProductWithPrice | null>(null);
+  const jewelryFilterLabel = language === "vi" ? "Kiểu" : "Type";
 
   const jewelryTypeOptions = useMemo(
     () => [
@@ -261,7 +271,7 @@ export default function ProductPage() {
       reader.readAsDataURL(file);
     });
 
-  const validateProduct = (product: Product | null) => {
+  const validateProduct = (product: ProductWithPrice | null) => {
     if (!product) return t("product.error.missing");
     return "";
   };
@@ -287,21 +297,65 @@ export default function ProductPage() {
     setSelectedFilesLabel(t("product.noFile"));
   }, [language, t]);
 
-  const parsePriceValue = useCallback((value?: string) => {
+  const parsePriceRange = useCallback((value?: string) => {
     if (!value) return null;
-    const match = value.replace(",", ".").match(/\d+(?:\.\d+)?/);
-    return match ? Number.parseFloat(match[0]) : null;
+    const match = value
+      .trim()
+      .toLowerCase()
+      .match(/^(\d+)x(?:tr)?$/);
+    if (!match) return null;
+    const base = Number(match[1]);
+    if (Number.isNaN(base)) return null;
+    return {
+      priceMin: base * 10 + 1,
+      priceMax: base * 10 + 9,
+    };
+  }, []);
+
+  const formatPriceDisplay = useCallback(
+    (value?: string) => {
+      if (!value) return "—";
+      const match = value
+        .trim()
+        .toLowerCase()
+        .match(/^(\d+)x(?:tr)?$/);
+      if (!match) return value;
+      return `${match[1]}x ${t("product.price.unit")}`;
+    },
+    [t],
+  );
+
+  const formatPriceInput = useCallback((value?: string) => {
+    if (!value) return "";
+    const match = value
+      .trim()
+      .toLowerCase()
+      .match(/^(\d+)x(?:tr)?$/);
+    if (match) return `${match[1]}x`;
+    return value;
+  }, []);
+
+  const normalizePriceStorage = useCallback((value?: string) => {
+    if (!value) return "";
+    const match = value
+      .trim()
+      .toLowerCase()
+      .match(/^(\d+)x(?:tr)?$/);
+    if (!match) return value;
+    return `${match[1]}xtr`;
   }, []);
 
   const isInSelectedPriceRange = useCallback(
-    (value?: string) => {
+    (product: ProductWithPrice) => {
       if (!selectedPriceRange) return true;
-      const parsed = parsePriceValue(value);
-      if (parsed === null) return false;
       const [min, max] = selectedPriceRange.split("-").map(Number);
-      return parsed >= min && parsed <= max;
+      if (Number.isNaN(min) || Number.isNaN(max)) return true;
+      if (product.priceMin === undefined || product.priceMax === undefined) {
+        return false;
+      }
+      return product.priceMax >= min && product.priceMin <= max;
     },
-    [parsePriceValue, selectedPriceRange],
+    [selectedPriceRange],
   );
 
   const filteredProducts = useMemo(
@@ -319,7 +373,7 @@ export default function ProductPage() {
         ) {
           return false;
         }
-        if (!isInSelectedPriceRange(product.sellingPrice)) {
+        if (!isInSelectedPriceRange(product)) {
           return false;
         }
         const searchable = [
@@ -346,6 +400,16 @@ export default function ProductPage() {
       selectedGemstoneType,
       selectedJewelryType,
     ],
+  );
+
+  const visibleProducts = useMemo(
+    () =>
+      [...filteredProducts].sort((a, b) => {
+        const aMin = a.priceMin ?? Number.POSITIVE_INFINITY;
+        const bMin = b.priceMin ?? Number.POSITIVE_INFINITY;
+        return aMin - bMin;
+      }),
+    [filteredProducts],
   );
 
   const formatStatus = (status?: CertificateStatus) => {
@@ -380,23 +444,32 @@ export default function ProductPage() {
     return "Unverified";
   };
 
-  const normalizeProductForUi = (product: Product): Product => ({
-    ...product,
-    certificateStatus: product.certificateStatus
-      ? toCertificateStatus(product.certificateStatus)
-      : "Pending",
-    images: product.images?.length
-      ? product.images
-      : product.image
-        ? [product.image]
-        : [],
-    image: product.images?.[0] || product.image,
-  });
-
-  const formatMoney = (value?: string) => {
-    if (value === undefined || value === null || value === "") return "0";
-    return value;
+  const normalizeProductForUi = (product: Product): ProductWithPrice => {
+    const priceRaw = normalizePriceStorage(product.sellingPrice);
+    const range = parsePriceRange(priceRaw);
+    return {
+      ...product,
+      priceRaw,
+      priceDisplay: formatPriceDisplay(priceRaw),
+      priceMin: range?.priceMin,
+      priceMax: range?.priceMax,
+      certificateStatus: product.certificateStatus
+        ? toCertificateStatus(product.certificateStatus)
+        : "Pending",
+      images: product.images?.length
+        ? product.images
+        : product.image
+          ? [product.image]
+          : [],
+      image: product.images?.[0] || product.image,
+    };
   };
+
+  const getSellingPriceDisplay = useCallback(
+    (product: ProductWithPrice) =>
+      product.priceDisplay || formatPriceDisplay(product.sellingPrice),
+    [formatPriceDisplay],
+  );
 
   const parseNumber = (value: string) =>
     value === "" ? undefined : Number.parseFloat(value);
@@ -454,12 +527,38 @@ export default function ProductPage() {
       setError(validationError);
       return;
     }
+    const sellingPriceInput = formatPriceInput(currentProduct.sellingPrice);
+    if (sellingPriceInput && !/^\d+x$/.test(sellingPriceInput)) {
+      const message = t("product.error.priceFormat");
+      setError(message);
+      showFeedback({ variant: "error", message });
+      return;
+    }
+    const buyingPriceInput = formatPriceInput(currentProduct.buyingPrice);
+    if (buyingPriceInput && !/^\d+x$/.test(buyingPriceInput)) {
+      const message = t("product.error.priceFormat");
+      setError(message);
+      showFeedback({ variant: "error", message });
+      return;
+    }
+    const normalizedSellingPrice = normalizePriceStorage(
+      currentProduct.sellingPrice,
+    );
+    const normalizedBuyingPrice = normalizePriceStorage(
+      currentProduct.buyingPrice,
+    );
     startLoading();
     try {
+      const { priceRaw, priceDisplay, priceMin, priceMax, ...rest } =
+        currentProduct;
+      void priceRaw;
+      void priceDisplay;
+      void priceMin;
+      void priceMax;
       const payload: Partial<Product> = {
-        ...currentProduct,
-        buyingPrice: currentProduct.buyingPrice || "",
-        sellingPrice: currentProduct.sellingPrice || "",
+        ...rest,
+        sellingPrice: normalizedSellingPrice || "",
+        buyingPrice: normalizedBuyingPrice || "",
         images: currentProduct.images?.length
           ? currentProduct.images
           : currentProduct.image
@@ -504,7 +603,7 @@ export default function ProductPage() {
     }
   };
 
-  const handleEditProduct = (product: Product) => {
+  const handleEditProduct = (product: ProductWithPrice) => {
     if (!canManageProducts) return;
     setCurrentProduct(product);
     setIsDialogOpen(true);
@@ -529,7 +628,7 @@ export default function ProductPage() {
     }
   };
 
-  const openProductStatusDialog = (target: Product) => {
+  const openProductStatusDialog = (target: ProductWithPrice) => {
     if (!canManageProducts) return;
     setProductStatusTarget(target);
     setProductStatusOpen(true);
@@ -545,7 +644,9 @@ export default function ProductPage() {
         nextIsActive,
       );
       setAllProducts((prev) =>
-        prev.map((entry) => (entry.id === updated.id ? updated : entry)),
+        prev.map((entry) =>
+          entry.id === updated.id ? normalizeProductForUi(updated) : entry,
+        ),
       );
       toast.success(t("status.updateSuccess"));
     } catch {
@@ -560,9 +661,29 @@ export default function ProductPage() {
   const getDefaultImage = (product: Product) =>
     product.images?.[0] || product.image;
 
+  const handlePriceInputChange = (
+    field: "sellingPrice" | "buyingPrice",
+    value: string,
+  ) => {
+    const trimmed = value.trim().toLowerCase();
+    if (trimmed === "") {
+      setCurrentProduct((prev) => (prev ? { ...prev, [field]: "" } : prev));
+      return;
+    }
+    if (!/^\d+x?$/.test(trimmed)) {
+      return;
+    }
+    const normalized = /^(\d+)x$/.test(trimmed)
+      ? `${trimmed.replace(/x$/, "")}xtr`
+      : trimmed;
+    setCurrentProduct((prev) =>
+      prev ? { ...prev, [field]: normalized } : prev,
+    );
+  };
+
   const GridView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {filteredProducts.map((product) => {
+      {visibleProducts.map((product) => {
         const isActive = product.isActive !== false;
         return (
           <Card
@@ -628,12 +749,12 @@ export default function ProductPage() {
                       {t("product.label.sellingPrice")}
                     </p>
                     <p className="text-lg font-bold bg-linear-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                      {formatMoney(product.sellingPrice)}
+                      {getSellingPriceDisplay(product)}
                     </p>
                     {(canViewBuyingPrice || product.buyingPrice) && (
                       <p className="text-xs text-muted-foreground mt-1">
                         {t("product.buyLabel")}{" "}
-                        {formatMoney(product.buyingPrice)}
+                        {formatPriceDisplay(product.buyingPrice)}
                       </p>
                     )}
                   </div>
@@ -732,208 +853,308 @@ export default function ProductPage() {
   );
 
   const TableView = () => (
-    <div className="border border-border/50 rounded-lg overflow-hidden">
-      <Table>
-        <TableHeader className="bg-muted/40">
-          <TableRow className="border-border/40">
-            <TableHead className="font-semibold text-foreground">
-              {t("product.table.image")}
-            </TableHead>
-            <TableHead className="font-semibold text-foreground">
-              {t("product.label.gemstone")}
-            </TableHead>
-            <TableHead className="font-semibold text-foreground">
-              {t("product.label.jewelry")}
-            </TableHead>
-            <TableHead className="font-semibold text-foreground">
-              {t("product.label.color")}
-            </TableHead>
-            <TableHead className="font-semibold text-foreground">
-              {t("product.label.dimension")}
-            </TableHead>
-            {showBuyingPriceColumn && (
-              <TableHead className="font-semibold text-foreground">
-                {t("product.label.buyingPrice")}
-              </TableHead>
-            )}
-            <TableHead className="font-semibold text-foreground">
-              {t("product.label.sellingPrice")}
-            </TableHead>
-            <TableHead className="font-semibold text-foreground">
-              {t("product.label.certificateStatus")}
-            </TableHead>
-            <TableHead className="font-semibold text-foreground">
-              {t("status.label")}
-            </TableHead>
-            <TableHead className="font-semibold text-foreground">
-              {t("product.label.certificateId")}
-            </TableHead>
-            <TableHead className="font-semibold text-foreground">
-              {t("product.label.certificateAuthority")}
-            </TableHead>
-            <TableHead className="font-semibold text-foreground">
-              {t("product.label.certificateImage")}
-            </TableHead>
-            <TableHead className="text-center font-semibold text-foreground">
-              {t("product.label.actions")}
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredProducts.map((product, index) => {
-            const isActive = product.isActive !== false;
-            return (
-              <TableRow
-                key={product.id}
-                className={cn(
-                  "border-border/40 hover:bg-muted/30 transition-colors",
-                  index % 2 === 0 ? "bg-background" : "bg-muted/10",
-                  !isActive && "opacity-70 grayscale",
-                )}
-              >
-                <TableCell className="py-4">
-                  {getDefaultImage(product) ? (
-                    <div className="relative w-10 h-10 rounded-md overflow-hidden border border-border/40">
-                      <Image
-                        src={getDefaultImage(product) as string}
-                        alt={
-                          formatGemstoneType(product.gemstoneType) ||
-                          product.jewelryType ||
-                          t("product.image.alt")
-                        }
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center text-xs opacity-30">
-                      💎
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="font-medium text-foreground">
-                  {formatGemstoneType(product.gemstoneType) || "—"}
-                </TableCell>
-                <TableCell className="text-sm text-foreground">
-                  {formatJewelryType(product.jewelryType) || "—"}
-                </TableCell>
-                <TableCell className="text-sm text-foreground">
-                  {product.colorType || "—"}
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  <div
-                    className="max-w-xs truncate"
-                    title={formatDimensionSummary(product)}
-                  >
-                    {formatDimensionSummary(product)}
+    <div className="space-y-3">
+      <div className="space-y-3 md:hidden">
+        {visibleProducts.map((product) => {
+          const isActive = product.isActive !== false;
+          return (
+            <div
+              key={product.id}
+              className={cn(
+                "rounded-lg border border-border/50 bg-card/80 p-3 shadow-sm",
+                !isActive && "opacity-70 grayscale",
+              )}
+            >
+              <div className="relative w-full overflow-hidden rounded-md bg-muted aspect-square">
+                {getDefaultImage(product) ? (
+                  <Image
+                    src={getDefaultImage(product) as string}
+                    alt={
+                      formatGemstoneType(product.gemstoneType) ||
+                      product.jewelryType ||
+                      t("product.image.alt")
+                    }
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-2xl opacity-30">
+                    💎
                   </div>
-                </TableCell>
-                {showBuyingPriceColumn && (
-                  <TableCell className="text-sm text-foreground font-medium">
-                    {product.buyingPrice
-                      ? formatMoney(product.buyingPrice)
-                      : "—"}
-                  </TableCell>
                 )}
-                <TableCell className="text-sm font-bold from-emerald-600/10 to-teal-600/10 text-emerald-700 ">
-                  {formatMoney(product.sellingPrice)}
-                </TableCell>
-                <TableCell>
+              </div>
+              <div className="mt-3 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-sm font-semibold text-foreground">
+                    {formatGemstoneType(product.gemstoneType) ||
+                      t("product.label.gemstone")}
+                  </div>
                   <Badge
-                    className={`text-xs font-semibold ${statusBadgeClass(
+                    className={`text-[11px] font-semibold ${statusBadgeClass(
                       product.certificateStatus,
                     )}`}
                   >
                     {formatStatus(product.certificateStatus)}
                   </Badge>
-                </TableCell>
-                <TableCell>
                   <StatusBadge isActive={isActive} />
-                </TableCell>
-                <TableCell className="text-xs text-foreground">
-                  {product.certificateId || "—"}
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {product.certificateAuthority || "—"}
-                </TableCell>
-                <TableCell>
-                  {product.certificateLink ? (
-                    <a
-                      href={product.certificateLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                    >
-                      {t("common.view")} →
-                    </a>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  <div className="flex items-center justify-center gap-1.5">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      asChild
-                      className="h-8 w-8 p-0"
-                      title={t("product.action.viewDetails")}
-                    >
-                      <Link href={`/product/${product.id}`}>
-                        <Eye size={14} className="text-amber-600" />
-                      </Link>
-                    </Button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatJewelryType(product.jewelryType) || "—"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {product.colorType || "—"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {formatDimensionSummary(product)}
+                </div>
+                <div className="text-sm font-semibold text-foreground">
+                  {getSellingPriceDisplay(product)}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Button variant="outline" size="sm" asChild className="h-8">
+                    <Link href={`/product/${product.id}`}>
+                      {t("product.action.view")}
+                    </Link>
+                  </Button>
+                  {canManageProducts ? (
                     <ActionMenu
-                      items={
-                        canManageProducts
-                          ? [
-                              {
-                                label: t("product.action.view"),
-                                onClick: () =>
-                                  router.push(`/product/${product.id}`),
-                              },
-                              {
-                                label: t("product.action.edit"),
-                                onClick: () => handleEditProduct(product),
-                                disabled: !isActive,
-                              },
-                              {
-                                label: isActive
-                                  ? t("status.deactivate")
-                                  : t("status.activate"),
-                                onClick: () => openProductStatusDialog(product),
-                              },
-                              {
-                                label: t("product.action.delete"),
-                                onClick: () => handleDeleteProduct(product.id),
-                                disabled: !isActive,
-                                destructive: true,
-                              },
-                            ]
-                          : []
-                      }
+                      items={[
+                        {
+                          label: t("product.action.view"),
+                          onClick: () => router.push(`/product/${product.id}`),
+                        },
+                        {
+                          label: t("product.action.edit"),
+                          onClick: () => handleEditProduct(product),
+                          disabled: !isActive,
+                        },
+                        {
+                          label: isActive
+                            ? t("status.deactivate")
+                            : t("status.activate"),
+                          onClick: () => openProductStatusDialog(product),
+                        },
+                        {
+                          label: t("product.action.delete"),
+                          onClick: () => handleDeleteProduct(product.id),
+                          disabled: !isActive,
+                          destructive: true,
+                        },
+                      ]}
                     />
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="hidden md:block border border-border/50 rounded-lg overflow-hidden md:overflow-x-auto">
+        <Table className="md:[&_th]:px-1.5 md:[&_td]:px-1.5 xl:[&_th]:px-2 xl:[&_td]:px-2">
+          <TableHeader className="bg-muted/40">
+            <TableRow className="border-border/40">
+              <TableHead className="font-semibold text-foreground">
+                {t("product.table.image")}
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                {t("product.label.gemstone")}
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                {t("product.label.jewelry")}
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                {t("product.label.color")}
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                {t("product.label.dimension")}
+              </TableHead>
+              {showBuyingPriceColumn && (
+                <TableHead className="font-semibold text-foreground">
+                  {t("product.label.buyingPrice")}
+                </TableHead>
+              )}
+              <TableHead className="font-semibold text-foreground">
+                {t("product.label.sellingPrice")}
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                {t("product.label.certificateStatus")}
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                {t("status.label")}
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                {t("product.label.certificateId")}
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                {t("product.label.certificateAuthority")}
+              </TableHead>
+              <TableHead className="font-semibold text-foreground">
+                {t("product.label.certificateImage")}
+              </TableHead>
+              <TableHead className="text-center font-semibold text-foreground">
+                {t("product.label.actions")}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibleProducts.map((product, index) => {
+              const isActive = product.isActive !== false;
+              return (
+                <TableRow
+                  key={product.id}
+                  className={cn(
+                    "border-border/40 hover:bg-muted/30 transition-colors",
+                    index % 2 === 0 ? "bg-background" : "bg-muted/10",
+                    !isActive && "opacity-70 grayscale",
+                  )}
+                >
+                  <TableCell className="py-4">
+                    {getDefaultImage(product) ? (
+                      <div className="relative w-10 h-10 rounded-md overflow-hidden border border-border/40">
+                        <Image
+                          src={getDefaultImage(product) as string}
+                          alt={
+                            formatGemstoneType(product.gemstoneType) ||
+                            product.jewelryType ||
+                            t("product.image.alt")
+                          }
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center text-xs opacity-30">
+                        💎
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-medium text-foreground">
+                    {formatGemstoneType(product.gemstoneType) || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-foreground">
+                    {formatJewelryType(product.jewelryType) || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-foreground">
+                    {product.colorType || "—"}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    <div
+                      className="max-w-xs truncate"
+                      title={formatDimensionSummary(product)}
+                    >
+                      {formatDimensionSummary(product)}
+                    </div>
+                  </TableCell>
+                  {showBuyingPriceColumn && (
+                    <TableCell className="text-sm text-foreground font-medium">
+                      {product.buyingPrice
+                        ? formatPriceDisplay(product.buyingPrice)
+                        : "—"}
+                    </TableCell>
+                  )}
+                  <TableCell className="text-sm font-bold from-emerald-600/10 to-teal-600/10 text-emerald-700 ">
+                    {getSellingPriceDisplay(product)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      className={`text-xs font-semibold ${statusBadgeClass(
+                        product.certificateStatus,
+                      )}`}
+                    >
+                      {formatStatus(product.certificateStatus)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge isActive={isActive} />
+                  </TableCell>
+                  <TableCell className="text-xs text-foreground">
+                    {product.certificateId || "—"}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {product.certificateAuthority || "—"}
+                  </TableCell>
+                  <TableCell>
+                    {product.certificateLink ? (
+                      <a
+                        href={product.certificateLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                      >
+                        {t("common.view")} →
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        asChild
+                        className="h-8 w-8 p-0"
+                        title={t("product.action.viewDetails")}
+                      >
+                        <Link href={`/product/${product.id}`}>
+                          <Eye size={14} className="text-amber-600" />
+                        </Link>
+                      </Button>
+                      <ActionMenu
+                        items={
+                          canManageProducts
+                            ? [
+                                {
+                                  label: t("product.action.view"),
+                                  onClick: () =>
+                                    router.push(`/product/${product.id}`),
+                                },
+                                {
+                                  label: t("product.action.edit"),
+                                  onClick: () => handleEditProduct(product),
+                                  disabled: !isActive,
+                                },
+                                {
+                                  label: isActive
+                                    ? t("status.deactivate")
+                                    : t("status.activate"),
+                                  onClick: () =>
+                                    openProductStatusDialog(product),
+                                },
+                                {
+                                  label: t("product.action.delete"),
+                                  onClick: () =>
+                                    handleDeleteProduct(product.id),
+                                  disabled: !isActive,
+                                  destructive: true,
+                                },
+                              ]
+                            : []
+                        }
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 max-md:space-y-6">
       <PageHeader
         title={t("product.header.title")}
         subtitle={t("product.header.subtitle")}
         actions={
-          <div className="flex flex-col items-end gap-3">
+          <div className="flex flex-col items-end gap-3 max-md:items-stretch">
             {canManageProducts ? (
               <Button
-                className="gap-2 font-semibold"
+                className="gap-2 font-semibold max-md:w-full"
                 onClick={() => {
                   setCurrentProduct({
                     id: "",
@@ -963,20 +1184,20 @@ export default function ProductPage() {
               </Button>
             ) : null}
             {!canViewBuyingPrice ? (
-              <div className="flex flex-col items-end gap-1.5">
+              <div className="flex flex-col items-end gap-1.5 max-md:items-stretch">
                 <Button
                   size="sm"
                   variant="outline"
                   disabled={priceRequestLoading}
                   onClick={handleRequestBuyingPrice}
-                  className="text-xs"
+                  className="text-xs max-md:w-full"
                 >
                   {priceRequestLoading
                     ? t("product.request.sending")
                     : t("product.request.cta")}
                 </Button>
                 {priceRequestMessage ? (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground max-md:text-left">
                     {priceRequestMessage}
                   </span>
                 ) : null}
@@ -987,10 +1208,10 @@ export default function ProductPage() {
       />
 
       {/* Statistics Cards - Improved Layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-md:gap-3">
         {/* Total Count */}
         <Card className="border-border/50 shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-6">
+          <CardContent className="p-6 max-md:p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -1010,7 +1231,7 @@ export default function ProductPage() {
 
         {/* Verified Count */}
         <Card className="border-border/50 shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-6">
+          <CardContent className="p-6 max-md:p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">
@@ -1031,7 +1252,7 @@ export default function ProductPage() {
 
         {/* Pending Count */}
         <Card className="border-border/50 shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-6">
+          <CardContent className="p-6 max-md:p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">
@@ -1051,7 +1272,7 @@ export default function ProductPage() {
 
         {/* Unverified Count */}
         <Card className="border-border/50 shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-6">
+          <CardContent className="p-6 max-md:p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
@@ -1079,12 +1300,12 @@ export default function ProductPage() {
 
       {/* Filters and View Controls Card */}
       <Card className="border-border/50 shadow-lg">
-        <CardHeader className="border-b border-border/40 pb-6">
-          <div className="flex items-center justify-between gap-4">
+        <CardHeader className="border-b border-border/40 pb-6 max-md:pb-4">
+          <div className="flex items-center justify-between gap-4 max-md:flex-col max-md:items-start max-md:gap-3">
             <CardTitle className="text-xl">
               {t("product.title")}
               <span className="text-muted-foreground text-base font-normal ml-2">
-                ({filteredProducts.length})
+                ({visibleProducts.length})
               </span>
             </CardTitle>
 
@@ -1111,11 +1332,11 @@ export default function ProductPage() {
           </div>
         </CardHeader>
 
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 max-md:pt-4">
           <FilterBar
             filters={
               <>
-                <div className="relative flex-1 min-w-60 lg:max-w-md">
+                <div className="relative flex-1 min-w-60 lg:max-w-md max-md:min-w-0 max-md:w-full">
                   <Search
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                     size={16}
@@ -1128,15 +1349,18 @@ export default function ProductPage() {
                   />
                 </div>
 
-                <div className="min-w-40 flex-1 sm:flex-none">
+                <div className="min-w-40 flex-1 sm:flex-none max-md:min-w-0 max-md:w-full max-md:flex-none">
                   <Select
                     value={selectedJewelryType || "all"}
                     onValueChange={(value) =>
                       setSelectedJewelryType(value === "all" ? "" : value)
                     }
                   >
-                    <SelectTrigger className="min-w-40">
-                      <SelectValue placeholder={t("product.filter.jewelry")} />
+                    <SelectTrigger className="min-w-40 max-md:w-full max-md:min-w-0">
+                      <span className="text-xs text-muted-foreground mr-1 pointer-events-none">
+                        {jewelryFilterLabel}:
+                      </span>
+                      <SelectValue placeholder={t("product.filter.all")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">
@@ -1151,15 +1375,18 @@ export default function ProductPage() {
                   </Select>
                 </div>
 
-                <div className="min-w-40 flex-1 sm:flex-none">
+                <div className="min-w-40 flex-1 sm:flex-none max-md:min-w-0 max-md:w-full max-md:flex-none">
                   <Select
                     value={selectedGemstoneType || "all"}
                     onValueChange={(value) =>
                       setSelectedGemstoneType(value === "all" ? "" : value)
                     }
                   >
-                    <SelectTrigger className="min-w-40">
-                      <SelectValue placeholder={t("product.filter.gemstone")} />
+                    <SelectTrigger className="min-w-40 max-md:w-full max-md:min-w-0">
+                      <span className="text-xs text-muted-foreground mr-1 pointer-events-none">
+                        {t("product.filter.gemstone")}:
+                      </span>
+                      <SelectValue placeholder={t("product.filter.all")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">
@@ -1175,15 +1402,18 @@ export default function ProductPage() {
                 </div>
 
                 {/* Price Range Filter */}
-                <div className="min-w-40 flex-1 sm:flex-none">
+                <div className="min-w-40 flex-1 sm:flex-none max-md:min-w-0 max-md:w-full max-md:flex-none">
                   <Select
                     value={selectedPriceRange || "all"}
                     onValueChange={(value) =>
                       setSelectedPriceRange(value === "all" ? "" : value)
                     }
                   >
-                    <SelectTrigger className="min-w-40">
-                      <SelectValue placeholder={t("product.filter.price")} />
+                    <SelectTrigger className="min-w-40 max-md:w-full max-md:min-w-0">
+                      <span className="text-xs text-muted-foreground mr-1 pointer-events-none">
+                        {t("product.filter.price")}:
+                      </span>
+                      <SelectValue placeholder={t("product.filter.all")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">
@@ -1203,7 +1433,7 @@ export default function ProductPage() {
         </CardContent>
 
         {/* Content Area */}
-        <CardContent className="pt-8">
+        <CardContent className="pt-8 max-md:pt-6">
           {/* Loading State */}
           {isLoading ? (
             <div className="text-center py-16">
@@ -1211,7 +1441,7 @@ export default function ProductPage() {
                 {t("product.loading")}
               </div>
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : visibleProducts.length === 0 ? (
             /* Empty State */
             <div className="text-center py-16">
               <div className="text-6xl mb-4 opacity-50">💎</div>
@@ -1742,12 +1972,9 @@ export default function ProductPage() {
                 <Input
                   type="text"
                   inputMode="numeric"
-                  value={currentProduct?.buyingPrice ?? ""}
+                  value={formatPriceInput(currentProduct?.buyingPrice)}
                   onChange={(e) =>
-                    setCurrentProduct((prev) => ({
-                      ...prev!,
-                      buyingPrice: e.target.value,
-                    }))
+                    handlePriceInputChange("buyingPrice", e.target.value)
                   }
                 />
               </>
@@ -1756,12 +1983,9 @@ export default function ProductPage() {
             <Input
               type="text"
               inputMode="numeric"
-              value={currentProduct?.sellingPrice ?? ""}
+              value={formatPriceInput(currentProduct?.sellingPrice)}
               onChange={(e) =>
-                setCurrentProduct((prev) => ({
-                  ...prev!,
-                  sellingPrice: e.target.value,
-                }))
+                handlePriceInputChange("sellingPrice", e.target.value)
               }
             />
             <Label>{t("product.label.certificateStatus")}</Label>
